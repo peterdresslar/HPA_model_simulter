@@ -51,7 +51,7 @@ b3 = st.sidebar.number_input("b3", min_value=0.0, max_value=2.0, value=0.086, st
 k = st.sidebar.number_input("k", min_value=0.0, max_value=2.0, value=0.05, step=1e-4)
 u = st.sidebar.number_input("u", min_value=0.0, max_value=5.0, value=1.0, step=0.1)
 kgr = st.sidebar.number_input("kgr", min_value=0.1, max_value=10.0, value=5.0, step=0.1)
-amplitude = st.sidebar.number_input("Amplitude of sin wave", min_value=0.0, max_value=5.0, value=0.3, step=0.1)
+amplitude = st.sidebar.slider("Amplitude of sin wave", min_value=0.0, max_value=1.0, value=0.3, step=0.1)
 period_in_hours = st.sidebar.slider("Period of sin wave (hours)", min_value=1, max_value=24, value=24, step=1)
 period = period_in_hours * 60  # Convert hours to minutes
 sigma = st.sidebar.slider("Noise Level (sigma)", min_value=0.0, max_value=1.0, value=0.2, step=0.01)
