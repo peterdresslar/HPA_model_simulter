@@ -31,10 +31,15 @@ def sde_solver_system(drift, x0, t, sigma, params):
     x = np.zeros((n, d))
     x[0] = x0
     dt = t[1] - t[0]
+    period = 24 * 60  # 24 hours in minutes
+    amplitude = st.sidebar.number_input("Amplitude of sin wave", min_value=0.0, max_value=5.0, value=1.0, step=0.1)
+
     for i in range(1, n):
         dw = np.random.normal(scale=np.sqrt(dt))  # Single noise term for x1
+        # Add a sinusoidal term to the drift of x1
+        sin_wave = amplitude * np.sin(2 * np.pi * t[i-1] / period)
         x[i] = x[i - 1] + drift(x[i - 1], t[i - 1], *params) * dt
-        x[i][0] += sigma * dw  # Apply noise only to x1
+        x[i][0] += sigma * dw + sin_wave  # Apply noise and sin wave to x1
     return x
 
 
@@ -157,31 +162,3 @@ if st.session_state.svg_data is not None:
         file_name=f"{filename}.svg",
         mime="image/svg+xml",
     )
-
-# # Provide a download button for the HTML
-
-# html = fig.to_html(full_html=False)
-# st.download_button(
-#     label="Download Plot as HTML",
-#     data=html,
-#     file_name=f"{filename}.html",
-#     mime="text/html",
-# )
-
-
-# # Function to convert Plotly figure to SVG
-# def fig_to_svg(fig):
-#     img_bytes = fig.to_image(format="svg")
-#     return img_bytes.decode("utf-8")
-
-
-# # Convert the Plotly figure to SVG
-# if st.button("Convert Plot to SVG"):
-#     svg = fig_to_svg(fig)
-
-#     st.download_button(
-#         label="Download Plot as SVG",
-#         data=svg.encode("utf-8"),
-#         file_name=f"{filename}.svg",
-#         mime="image/svg+xml",
-#     )
