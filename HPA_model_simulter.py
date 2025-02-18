@@ -31,13 +31,13 @@ def sde_solver_system(drift, x0, t, sigma, params):
     x = np.zeros((n, d))
     x[0] = x0
     dt = t[1] - t[0]
-    period = 24 * 60  # 24 hours in minutes
-    amplitude = st.sidebar.number_input("Amplitude of sin wave", min_value=0.0, max_value=5.0, value=1.0, step=0.1)
-
+    amplitude = st.sidebar.number_input("Amplitude of sin wave", min_value=0.0, max_value=5.0, value=0.3, step=0.1)
+    period_in_hours = st.sidebar.slider("Period of sin wave (hours)", min_value=1, max_value=24, value=24, step=1)
+    period = period_in_hours * 60  # Convert hours to minutes
     for i in range(1, n):
         dw = np.random.normal(scale=np.sqrt(dt))  # Single noise term for x1
         # Add a sinusoidal term to the drift of x1
-        sin_wave = amplitude * np.sin(2 * np.pi * t[i-1] / period)
+        sin_wave = amplitude * np.sin(2 * np.pi * t[i - 1] / period)
         x[i] = x[i - 1] + drift(x[i - 1], t[i - 1], *params) * dt
         x[i][0] += sigma * dw + sin_wave  # Apply noise and sin wave to x1
     return x
@@ -68,7 +68,7 @@ a3 = st.sidebar.number_input("a3", min_value=0.0, max_value=2.0, value=0.0086, s
 b3 = st.sidebar.number_input("b3", min_value=0.0, max_value=2.0, value=0.086, step=1e-4)
 k = st.sidebar.number_input("k", min_value=0.0, max_value=2.0, value=0.05, step=1e-4)
 u = st.sidebar.number_input("u", min_value=0.0, max_value=5.0, value=1.0, step=0.1)
-kgr = st.sidebar.number_input("kgr", min_value=0.1, max_value=5.0, value=5.0, step=0.1)
+kgr = st.sidebar.number_input("kgr", min_value=0.1, max_value=10.0, value=5.0, step=0.1)
 
 
 # Pack parameters for drift function
@@ -88,12 +88,13 @@ st.sidebar.write(f"x1 = {steady_state[0]:.4f}, x2 = {steady_state[1]:.4f}, x3 = 
 x0 = steady_state  # use the computed steady state
 
 # Simulation time and discretization
-T = st.sidebar.slider("T (minutes)", min_value=60.0, max_value=2400.0, value=600.0, step=60.0)
+T_in_hours = st.sidebar.slider("Simulation Time (hours)", min_value=1, max_value=48, value=24, step=1)
+T = T_in_hours * 60  # Convert hours to minutes
 n_points = st.sidebar.slider("Time Steps", min_value=100, max_value=1000, value=400, step=50)
 t = np.linspace(0, T, n_points)
 
 # Diffusion coefficient (noise level)
-sigma = st.sidebar.slider("Noise Level (sigma)", min_value=0.0, max_value=1.0, value=0.5, step=0.001)
+sigma = st.sidebar.slider("Noise Level (sigma)", min_value=0.0, max_value=1.0, value=0.2, step=0.01)
 
 # Simulate the system using the SDE solver
 sol = sde_solver_system(hpa_drift, x0, t, sigma, params)
@@ -102,6 +103,7 @@ sol = sde_solver_system(hpa_drift, x0, t, sigma, params)
 import plotly.graph_objects as go
 
 # Create traces for each variable
+t = t / 60  # Convert time to hours
 trace1 = go.Scatter(x=t, y=sol[:, 0], mode="lines", name="x1", line=dict(color="blue"))
 trace2 = go.Scatter(x=t, y=sol[:, 1], mode="lines", name="x2", line=dict(color="green"))
 trace3 = go.Scatter(x=t, y=sol[:, 2], mode="lines", name="x3", line=dict(color="red"))
@@ -110,7 +112,7 @@ trace4 = go.Scatter(x=t, y=sol[:, 3], mode="lines", name="x3b", line=dict(color=
 # Define layout
 layout = go.Layout(
     title="HPA Axis Simulation using SDE (Euler–Maruyama)",
-    xaxis=dict(title="Time (minutes)", tickmode="array", tickvals=np.arange(0, T + 1, 60)),
+    xaxis=dict(title="Time (Hours)", tickmode="array", tickvals=np.arange(0, T + 1, 60)),
     yaxis=dict(title="Concentrations"),
     legend=dict(x=0, y=1, traceorder="normal"),
     template="plotly_white",
@@ -122,9 +124,9 @@ layout.update(
         showgrid=True,
         gridcolor="lightgray",
         gridwidth=0.5,
-        title="Time (minutes)",
+        title="Time (hours)",
         tickmode="array",
-        tickvals=np.arange(0, T + 1, 60),
+        tickvals=np.arange(0, T + 1),
     ),
     yaxis=dict(
         showgrid=True,
@@ -141,13 +143,15 @@ st.plotly_chart(fig)
 # Provide a text input for the filename and a download button
 filename = st.text_input("Filename", "hpa_simulation")
 
+
 # Function to convert Plotly figure to SVG
 def fig_to_svg(fig):
     img_bytes = fig.to_image(format="svg")
     return img_bytes.decode("utf-8")
 
+
 # Initialize session state variable if not already present
-if 'svg_data' not in st.session_state:
+if "svg_data" not in st.session_state:
     st.session_state.svg_data = None
 
 # Button to trigger SVG conversion
