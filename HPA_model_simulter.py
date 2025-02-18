@@ -3,6 +3,7 @@ import numpy as np
 from scipy.optimize import fsolve
 import plotly.graph_objects as go
 
+
 # Drift function for the HPA axis
 def hpa_drift(x, t, a1, b1, a2, b2, a3, b3, k, u, kgr):
     x1, x2, x3, x3b = x
@@ -61,6 +62,7 @@ n_points = st.sidebar.slider("Time Steps", min_value=100, max_value=1000, value=
 # Pack parameters
 params = (a1, b1, a2, b2, a3, b3, k, u, kgr)
 
+
 # Compute steady-state initial conditions
 def f_to_solve(x):
     return hpa_drift(x, 0, *params)
@@ -90,6 +92,11 @@ fig.update_layout(
     yaxis_title="Concentrations",
     template="plotly_white",
 )
+
+# Add grid lines to the plot
+fig.update_xaxes(showgrid=True)
+fig.update_yaxes(showgrid=True)
+
 st.plotly_chart(fig)
 
 
