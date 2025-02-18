@@ -1,7 +1,31 @@
 import streamlit as st
+
+"""
+This script simulates the Hypothalamic-Pituitary-Adrenal (HPA) axis using stochastic differential equations (SDEs).
+It provides a Streamlit interface to adjust simulation parameters and visualize the results.
+The HPA axis is modeled as a system of four differential equations representing the concentrations of key hormones.
+The simulation incorporates a sinusoidal forcing term to mimic circadian rhythms and Gaussian noise to represent stochastic effects.
+The Streamlit app allows users to:
+- Adjust parameters of the HPA axis model.
+- Set the amplitude and period of the sinusoidal forcing.
+- Control the noise level in the simulation.
+- Define the simulation time and the number of time steps.
+- Visualize the simulated hormone concentrations over time.
+- Download the plot as an SVG file.
+Functions:
+- hpa_drift(x, t, a1, b1, a2, b2, a3, b3, k, u, kgr): Defines the drift term of the SDEs for the HPA axis model.
+- sde_solver_system(drift, x0, t, sigma, params, amplitude, period): Solves a system of SDEs using the Euler-Maruyama method.
+- fig_to_svg(fig): Converts a Plotly figure to an SVG string.
+The script uses the following libraries:
+- streamlit: For creating the interactive web interface.
+- numpy: For numerical computations.
+- scipy: For solving the steady-state equations.
+- plotly: For creating interactive plots.
+"""
 import numpy as np
 from scipy.optimize import fsolve
 import plotly.graph_objects as go
+
 
 # Drift function for the HPA axis
 def hpa_drift(x, t, a1, b1, a2, b2, a3, b3, k, u, kgr):
@@ -61,6 +85,7 @@ n_points = st.sidebar.slider("Time Steps", min_value=100, max_value=1000, value=
 # Pack parameters
 params = (a1, b1, a2, b2, a3, b3, k, u, kgr)
 
+
 # Compute steady-state initial conditions
 def f_to_solve(x):
     return hpa_drift(x, 0, *params)
@@ -90,6 +115,11 @@ fig.update_layout(
     yaxis_title="Concentrations",
     template="plotly_white",
 )
+
+# Add grid lines to the plot
+fig.update_xaxes(showgrid=True)
+fig.update_yaxes(showgrid=True)
+
 st.plotly_chart(fig)
 
 
