@@ -78,7 +78,10 @@ t = np.linspace(0, T, n_points)
 
 # Simulate the system
 sol = sde_solver_system(hpa_drift, x0, t, sigma, params, amplitude, period)
-
+normalise = st.checkbox("Normalise the concentrations")
+if normalise:
+    sol = sol / np.max(sol, axis=0)
+# if normalise:
 # Plotting
 t = t / 60  # Convert time to hours
 fig = go.Figure()
