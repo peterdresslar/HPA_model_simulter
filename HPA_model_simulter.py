@@ -83,7 +83,7 @@ if normalise:
     sol = sol / np.max(sol, axis=0)
 # if normalise:
 # Plotting
-t = t / 60  # Convert time to hours
+t = t  # Convert time to hours
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=t, y=sol[:, 0], mode="lines", name="x1"))
 fig.add_trace(go.Scatter(x=t, y=sol[:, 1], mode="lines", name="x2"))
@@ -91,7 +91,7 @@ fig.add_trace(go.Scatter(x=t, y=sol[:, 2], mode="lines", name="x3"))
 fig.add_trace(go.Scatter(x=t, y=sol[:, 3], mode="lines", name="x3b"))
 fig.update_layout(
     title="HPA Axis Simulation",
-    xaxis_title="Time (hours)",
+    xaxis_title="Time (minutes)",
     yaxis_title="Concentrations",
     template="plotly_white",
 )
