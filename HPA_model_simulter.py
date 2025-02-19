@@ -27,12 +27,15 @@ def sde_solver_system(drift, x0, t, sigma, params, amplitude, period):
     x = np.zeros((n, d))
     x[0] = x0
     dt = t[1] - t[0]
+    start_sin_with_delay = st.slider("Start sin wave after (minutes)", min_value=0, max_value=100, value=0, step=10)
     for i in range(1, n):
         dw = np.random.normal(scale=np.sqrt(dt))  # Single noise term for x1
         # Add a sinusoidal term to the drift of x1
-        sin_wave = amplitude * np.sin(2 * np.pi * t[i - 1] / period)
+        if i > start_sin_with_delay:
+            sin_wave = amplitude * np.sin(2 * np.pi * t[i - 1] / period)
         x[i] = x[i - 1] + drift(x[i - 1], t[i - 1], *params) * dt
-        x[i][0] += sigma * dw + sin_wave  # Apply noise and sin wave to x1
+        if i > start_sin_with_delay:
+            x[i][0] += sigma * dw + sin_wave  # Apply noise and sin wave to x1
     return x
 
 
