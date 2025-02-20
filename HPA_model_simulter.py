@@ -27,12 +27,15 @@ def sde_solver_system(drift, x0, t, sigma, params, amplitude, period):
     x = np.zeros((n, d))
     x[0] = x0
     dt = t[1] - t[0]
+    start_sin_with_delay = st.slider("Start sin wave after (minutes)", min_value=0, max_value=100, value=0, step=10)
     for i in range(1, n):
         dw = np.random.normal(scale=np.sqrt(dt))  # Single noise term for x1
         # Add a sinusoidal term to the drift of x1
-        sin_wave = amplitude * np.sin(2 * np.pi * t[i - 1] / period)
+        if i > start_sin_with_delay:
+            sin_wave = amplitude * np.sin(2 * np.pi * t[i - 1] / period)
         x[i] = x[i - 1] + drift(x[i - 1], t[i - 1], *params) * dt
-        x[i][0] += sigma * dw + sin_wave  # Apply noise and sin wave to x1
+        if i > start_sin_with_delay:
+            x[i][0] += sigma * dw + sin_wave  # Apply noise and sin wave to x1
     return x
 
 
@@ -90,9 +93,12 @@ t = np.linspace(0, T, n_points)
 
 # Simulate the system
 sol = sde_solver_system(hpa_drift, x0, t, sigma, params, amplitude, period)
-
+normalise = st.checkbox("Normalise the concentrations")
+if normalise:
+    sol = sol / np.max(sol, axis=0)
+# if normalise:
 # Plotting
-t = t / 60  # Convert time to hours
+t = t  # Convert time to hours
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=t, y=sol[:, 0], mode="lines", name="x1"))
 fig.add_trace(go.Scatter(x=t, y=sol[:, 1], mode="lines", name="x2"))
@@ -100,7 +106,7 @@ fig.add_trace(go.Scatter(x=t, y=sol[:, 2], mode="lines", name="x3"))
 fig.add_trace(go.Scatter(x=t, y=sol[:, 3], mode="lines", name="x3b"))
 fig.update_layout(
     title="HPA Axis Simulation",
-    xaxis_title="Time (hours)",
+    xaxis_title="Time (minutes)",
     yaxis_title="Concentrations",
     template="plotly_white",
 )
