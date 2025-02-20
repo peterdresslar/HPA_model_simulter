@@ -37,6 +37,18 @@ def sde_solver_system(drift, x0, t, sigma, params, amplitude, period):
 
 
 st.title("HPA Axis Simulation using Stochastic Differential Equations (SDE)")
+st.write("This app simulates the HPA axis using a system of stochastic differential equations (SDE).")
+st.write("The equations of the HPA axis model are:")
+st.latex(
+    r"""
+\begin{aligned}
+\frac{dx_1}{dt} &= b_1 \frac{1}{1 + \left(\frac{x_{3b}}{k_{gr}}\right)^3} \frac{1}{x_{3b}} u - a_1 x_1 \\
+\frac{dx_2}{dt} &= b_2 x_1 \frac{1}{1 + \left(\frac{x_3}{k_{gr}}\right)^3} - a_2 x_2 \\
+\frac{dx_3}{dt} &= b_3 x_2 - a_3 x_3 \\
+\frac{dx_{3b}}{dt} &= k (x_3-x_{3b}) - a_3 x_{3b}
+\end{aligned}
+"""
+)
 
 # Sidebar controls for parameters
 st.sidebar.title("Simulation Parameters")
@@ -121,3 +133,43 @@ if st.session_state.svg_data is not None:
         file_name=f"{filename}.svg",
         mime="image/svg+xml",
     )
+
+st.markdown(
+    """
+
+### Summary of the HPA Axis Model
+
+1. **Equation for $ \\frac{dx_1}{dt} $**:
+   $$\\frac{dx_1}{dt} = b_1 \\frac{1}{1 + \\left(\\frac{x_{3b}}{k_{gr}}\\right)^3} \\frac{1}{x_{3b}} u - a_1 x_1$$
+   - $ x_1 $: CRH (Corticotropin-Releasing Hormone)
+   - $ b_1 $: Production rate constant for CRH
+   - $ \\frac{1}{1 + \\left(\\frac{x_{3b}}{k_{gr}}\\right)^3} $: GR (Glucocorticoid Receptor) response inside the BBB (Blood-Brain Barrier)
+   - $ \\frac{1}{x_{3b}} $: MR (Mineralocorticoid Receptor) response
+   - $ u $: External stimulus
+   - $ a_1 $: Degradation rate of CRH
+   - $ k_{gr} $: Concentration of cortisol at which the GR response is at half of its maximum effectiveness (EC50).
+   - 
+
+2. **Equation for $ \\frac{dx_2}{dt} $**:
+   $$\\frac{dx_2}{dt} = b_2 x_1 \\frac{1}{1 + \\left(\\frac{x_3}{k_{gr}}\\right)^3} - a_2 x_2$$
+   - $ x_2 $: Another form of CRH
+   - $ b_2 $: Production rate constant for this form of CRH
+   - $ x_1 $: Precursor CRH
+   - $ \\frac{1}{1 + \\left(\\frac{x_3}{k_{gr}}\\right)^3} $: GR response (outside the BBB)
+   - $ a_2 $: Degradation rate of this form of CRH
+
+3. **Equation for $ \\frac{dx_3}{dt} $**:
+   $$\\frac{dx_3}{dt} = b_3 x_2 - a_3 x_3$$
+   - $ x_3 $: Cortisol
+   - $ b_3 $: Production rate constant for cortisol
+   - $ x_2 $: Precursor CRH
+   - $ a_3 $: Degradation rate of cortisol
+
+4. **Equation for $ \\frac{dx_{3b}}{dt} $**:
+   $$\\frac{dx_{3b}}{dt} = k (x_3 - x_{3b}) - a_3 x_{3b}$$
+   - $ x_{3b} $: Cortisol in the BBB
+   - $ k $: Transfer rate constant between blood and brain
+   - $ x_3 $: Cortisol
+   - $ a_3 x_{3b} $: Degradation rate of cortisol in the BBB
+    """
+)   
