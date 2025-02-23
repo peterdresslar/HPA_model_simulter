@@ -27,22 +27,27 @@ def sde_solver_system(drift, x0, t, sigma, params, amplitude, period):
     x = np.zeros((n, d))
     x[0] = x0
     dt = t[1] - t[0]
-    start_sin_with_delay = st.slider("Start sin wave after (minutes)", min_value=0, max_value=100, value=0, step=10)
-    for i in range(1, n):   
-        # dw = np.random.normal(scale=np.sqrt(dt))  # Single noise term for x1
-        # st.write(dw)
-        dw = np.sin(2 *np.pi * np.sin(i) * i)
-        # Add a sinusoidal term to the drift of x1
-        if i > start_sin_with_delay:
-            sin_wave = amplitude * np.sin(2 * np.pi * t[i - 1] / period)
-            # sin_wave_2 = amplitude * np.sin(np.pi * t[i - 1] / period)
+    for i in range(1, n):
+        sin_wave = amplitude * np.sin(2 * np.pi * t[i - 1] / period)
+        dw = np.random.normal(scale= np.sqrt(dt))  # Single noise term for x1
         x[i] = x[i - 1] + drift(x[i - 1], t[i - 1], *params) * dt
-        if i > start_sin_with_delay:
-            x[i][0] += sigma * dw + sin_wave  # Apply noise and sin wave to x1
+        x[i][0] += sigma * dw + sin_wave  # Apply noise and sin wave to x1
     return x
 
 
 st.title("HPA Axis Simulation using Stochastic Differential Equations (SDE)")
+st.write("This app simulates the HPA axis using a system of stochastic differential equations (SDE).")
+st.write("The equations of the HPA axis model are:")
+st.latex(
+    r"""
+\begin{aligned}
+\frac{dx_1}{dt} &= b_1 \frac{1}{1 + \left(\frac{x_{3b}}{k_{gr}}\right)^3} \frac{1}{x_{3b}} u - a_1 x_1 \\
+\frac{dx_2}{dt} &= b_2 x_1 \frac{1}{1 + \left(\frac{x_3}{k_{gr}}\right)^3} - a_2 x_2 \\
+\frac{dx_3}{dt} &= b_3 x_2 - a_3 x_3 \\
+\frac{dx_{3b}}{dt} &= k (x_3-x_{3b}) - a_3 x_{3b}
+\end{aligned}
+"""
+)
 
 # Sidebar controls for parameters
 st.sidebar.title("Simulation Parameters")
@@ -58,7 +63,7 @@ b3 = st.sidebar.number_input("b3", min_value=0.0, max_value=2.0, value=0.086, st
 k = st.sidebar.slider("k", min_value=0.0, max_value=2.0, value=0.05, step=1e-3)
 u = st.sidebar.number_input("u", min_value=0.0, max_value=5.0, value=1.0, step=0.1)
 kgr = st.sidebar.number_input("kgr", min_value=0.1, max_value=10.0, value=5.0, step=0.1)
-amplitude = st.sidebar.slider("Amplitude of sin wave", min_value=0.0, max_value=1.0, value=0.3, step=0.1)
+amplitude = st.sidebar.slider("Amplitude of sin wave", min_value=0.0, max_value=1.0, value=0.3, step=0.01)
 period_in_hours = st.sidebar.slider("Period of sin wave (hours)", min_value=1, max_value=24, value=24, step=1)
 period = period_in_hours * 60  # Convert hours to minutes
 sigma = st.sidebar.slider("Noise Level (sigma)", min_value=0.0, max_value=1.0, value=0.2, step=0.01)
@@ -85,10 +90,8 @@ t = np.linspace(0, T, n_points)
 
 # Simulate the system
 sol = sde_solver_system(hpa_drift, x0, t, sigma, params, amplitude, period)
-normalise = st.checkbox("Normalise the concentrations")
-if normalise:
+if st.checkbox("Normalise the concentrations"):
     sol = sol / np.max(sol, axis=0)
-# if normalise:
 # Plotting
 t = t / 60  # Convert time to hours
 fig = go.Figure()
@@ -135,3 +138,43 @@ if st.session_state.svg_data is not None:
         file_name=f"{filename}.svg",
         mime="image/svg+xml",
     )
+
+st.markdown(
+    """
+
+### Summary of the HPA Axis Model
+
+1. **Equation for $ \\frac{dx_1}{dt} $**:
+   $$\\frac{dx_1}{dt} = b_1 \\frac{1}{1 + \\left(\\frac{x_{3b}}{k_{gr}}\\right)^3} \\frac{1}{x_{3b}} u - a_1 x_1$$
+   - $ x_1 $: CRH (Corticotropin-Releasing Hormone)
+   - $ b_1 $: Production rate constant for CRH
+   - $ \\frac{1}{1 + \\left(\\frac{x_{3b}}{k_{gr}}\\right)^3} $: GR (Glucocorticoid Receptor) response inside the BBB (Blood-Brain Barrier)
+   - $ \\frac{1}{x_{3b}} $: MR (Mineralocorticoid Receptor) response
+   - $ u $: External stimulus
+   - $ a_1 $: Degradation rate of CRH
+   - $ k_{gr} $: Concentration of cortisol at which the GR response is at half of its maximum effectiveness (EC50).
+   - 
+
+2. **Equation for $ \\frac{dx_2}{dt} $**:
+   $$\\frac{dx_2}{dt} = b_2 x_1 \\frac{1}{1 + \\left(\\frac{x_3}{k_{gr}}\\right)^3} - a_2 x_2$$
+   - $ x_2 $: Another form of CRH
+   - $ b_2 $: Production rate constant for this form of CRH
+   - $ x_1 $: Precursor CRH
+   - $ \\frac{1}{1 + \\left(\\frac{x_3}{k_{gr}}\\right)^3} $: GR response (outside the BBB)
+   - $ a_2 $: Degradation rate of this form of CRH
+
+3. **Equation for $ \\frac{dx_3}{dt} $**:
+   $$\\frac{dx_3}{dt} = b_3 x_2 - a_3 x_3$$
+   - $ x_3 $: Cortisol
+   - $ b_3 $: Production rate constant for cortisol
+   - $ x_2 $: Precursor CRH
+   - $ a_3 $: Degradation rate of cortisol
+
+4. **Equation for $ \\frac{dx_{3b}}{dt} $**:
+   $$\\frac{dx_{3b}}{dt} = k (x_3 - x_{3b}) - a_3 x_{3b}$$
+   - $ x_{3b} $: Cortisol in the BBB
+   - $ k $: Transfer rate constant between blood and brain
+   - $ x_3 $: Cortisol
+   - $ a_3 x_{3b} $: Degradation rate of cortisol in the BBB
+    """
+)
