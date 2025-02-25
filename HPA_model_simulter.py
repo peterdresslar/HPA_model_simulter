@@ -29,7 +29,7 @@ def sde_solver_system(drift, x0, t, sigma, params, amplitude, period):
     dt = t[1] - t[0]
     for i in range(1, n):
         sin_wave = amplitude * np.sin(2 * np.pi * t[i - 1] / period)
-        dw = np.random.normal(scale= np.sqrt(dt))  # Single noise term for x1
+        dw = np.abs(np.random.normal(scale= np.sqrt(dt)))  # Single noise term for x1
         x[i] = x[i - 1] + drift(x[i - 1], t[i - 1], *params) * dt
         x[i][0] += sigma * dw + sin_wave  # Apply noise and sin wave to x1
     return x
@@ -75,7 +75,7 @@ period_in_hours = st.sidebar.slider("Period of sin wave (hours)", min_value=1, m
 period = period_in_hours * 60  # Convert hours to minutes
 sigma = st.sidebar.slider("Noise Level (sigma)", min_value=0.0, max_value=1.0, value=0.2, step=0.01)
 T_in_hours = st.sidebar.slider("Simulation Time (hours)", min_value=1, max_value=48, value=24, step=1)
-n_points = st.sidebar.slider("Time Steps", min_value=100, max_value=1000, value=400, step=50)
+n_points = st.sidebar.slider("Time Steps", min_value=100, max_value=10000, value=400, step=50)
 
 
 # Pack parameters
@@ -166,8 +166,17 @@ fft_x2  = np.fft.fft(sol[:, 1])
 fft_x3  = np.fft.fft(sol[:, 2])
 fft_x3b = np.fft.fft(sol[:, 3])
 
-# Calculate frequency bins using the sampling interval from t
-freq = np.fft.fftfreq(len(t), d=t[1]-t[0])
+# Calculate frequency bins using the sampling interval from t (in minutes)
+freq = np.fft.fftfreq(len(t), d=t[1] - t[0])  # frequency in cycles/minute
+
+# Convert frequency to cycles per week:
+freq_hours = freq * 60   # 60 minutes, 24 hours, 7 days = 10080
+
+# Remove the 0 frequency (DC component) by filtering positive frequencies
+#remove the day frequency
+# positive = freq > 0.05
+# mask = (freq_week > ) & (freq_week < 0.5)  # mask for frequencies between 0.05 and 0.5 cycles/week
+mask= freq_hours>0
 
 # Compute amplitude and phase for each signal
 amp_x1  = np.abs(fft_x1)
@@ -180,25 +189,34 @@ phase_x2  = np.angle(fft_x2)
 phase_x3  = np.angle(fft_x3)
 phase_x3b = np.angle(fft_x3b)
 
-# Only keep positive frequencies for plotting
-positive = freq > 0
-
-# Plot amplitude spectrum
+# Plot amplitude spectrum using frequencies in cycles per week
 fig_amp = go.Figure()
-fig_amp.add_trace(go.Scatter(x=freq[positive], y=amp_x1[positive], mode='lines', name='x1 amplitude'))
-fig_amp.add_trace(go.Scatter(x=freq[positive], y=amp_x2[positive], mode='lines', name='x2 amplitude'))
-fig_amp.add_trace(go.Scatter(x=freq[positive], y=amp_x3[positive], mode='lines', name='x3 amplitude'))
-fig_amp.add_trace(go.Scatter(x=freq[positive], y=amp_x3b[positive], mode='lines', name='x3b amplitude'))
-fig_amp.update_layout(title="Amplitude Spectrum", xaxis_title="Frequency (Hz)", yaxis_title="Amplitude")
+fig_amp.add_trace(go.Scatter(x=freq_hours[mask], y=amp_x1[mask],
+                             mode='lines', name='x1 amplitude'))
+fig_amp.add_trace(go.Scatter(x=freq_hours[mask], y=amp_x2[mask],
+                             mode='lines', name='x2 amplitude'))
+fig_amp.add_trace(go.Scatter(x=freq_hours[mask], y=amp_x3[mask],
+                             mode='lines', name='x3 amplitude'))
+fig_amp.add_trace(go.Scatter(x=freq_hours[mask], y=amp_x3b[mask],
+                             mode='lines', name='x3b amplitude'))
+fig_amp.update_layout(title="Amplitude Spectrum",
+                      xaxis_title="Frequency (cycles/hours)",
+                      yaxis_title="Amplitude")
 st.plotly_chart(fig_amp)
 
-# Plot phase spectrum
+# Plot phase spectrum using frequencies in cycles per hoursfreq_hours
 fig_phase = go.Figure()
-fig_phase.add_trace(go.Scatter(x=freq[positive], y=phase_x1[positive], mode='lines', name='x1 phase'))
-fig_phase.add_trace(go.Scatter(x=freq[positive], y=phase_x2[positive], mode='lines', name='x2 phase'))
-fig_phase.add_trace(go.Scatter(x=freq[positive], y=phase_x3[positive], mode='lines', name='x3 phase'))
-fig_phase.add_trace(go.Scatter(x=freq[positive], y=phase_x3b[positive], mode='lines', name='x3b phase'))
-fig_phase.update_layout(title="Phase Spectrum", xaxis_title="Frequency (Hz)", yaxis_title="Phase (radians)")
+fig_phase.add_trace(go.Scatter(x=freq_hours[mask], y=phase_x1[mask],
+                               mode='lines', name='x1 phase'))
+fig_phase.add_trace(go.Scatter(x=freq_hours[mask], y=phase_x2[mask],
+                               mode='lines', name='x2 phase'))
+fig_phase.add_trace(go.Scatter(x=freq_hours[mask], y=phase_x3[mask],
+                               mode='lines', name='x3 phase'))
+fig_phase.add_trace(go.Scatter(x=freq_hours[mask], y=phase_x3b[mask],
+                               mode='lines', name='x3b phase'))
+fig_phase.update_layout(title="Phase Spectrum",
+                        xaxis_title="Frequency (cycles/week)",
+                        yaxis_title="Phase (radians)")
 st.plotly_chart(fig_phase)
 
 # print the phase diff betwee x1 and x2, x2 and x3, x3 and x3b
