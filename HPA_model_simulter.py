@@ -21,16 +21,35 @@ def hpa_drift(x, t, a1, b1, a2, b2, a3, b3, k, u, kgr):
 
 
 # Euler–Maruyama SDE solver for systems
-def sde_solver_system(drift, x0, t, sigma, params, amplitude, period):
+def sde_solver_system(drift, x0, t, sigma, params, amplitude, period, stress_params=None):
     n = len(t)
     d = len(x0)
     x = np.zeros((n, d))
     x[0] = x0
     dt = t[1] - t[0]
+    
+    # Unpack stress parameters
+    if stress_params:
+        stress_amplitude, stress_start, stress_duration = stress_params
+    else:
+        stress_amplitude, stress_start, stress_duration = 0, 0, 0
+        
     for i in range(1, n):
         sin_wave = amplitude * np.sin(2 * np.pi * t[i - 1] / period)
-        dw = np.random.normal(scale= np.sqrt(dt))  # Single noise term for x1
-        x[i] = x[i - 1] + drift(x[i - 1], t[i - 1], *params) * dt
+        
+        # Calculate current u based on stress parameters
+        current_u = params[7]  # Original u value
+        
+        # Apply stress if within the stress period
+        if stress_params and stress_start <= t[i - 1] < (stress_start + stress_duration):
+            current_u = stress_amplitude
+        
+        # Create parameters with updated u
+        current_params = list(params)
+        current_params[7] = current_u
+        
+        dw = np.random.normal(scale=np.sqrt(dt))  # Single noise term for x1
+        x[i] = x[i - 1] + drift(x[i - 1], t[i - 1], *current_params) * dt
         x[i][0] += sigma * dw + sin_wave  # Apply noise and sin wave to x1
     return x
 
@@ -69,6 +88,19 @@ sigma = st.sidebar.slider("Noise Level (sigma)", min_value=0.0, max_value=1.0, v
 T_in_hours = st.sidebar.slider("Simulation Time (hours)", min_value=1, max_value=48, value=24, step=1)
 n_points = st.sidebar.slider("Time Steps", min_value=100, max_value=1000, value=400, step=50)
 
+# Add stress simulation parameters
+st.sidebar.title("Stress Parameters")
+enable_stress = st.sidebar.checkbox("Enable stress simulation", value=False)
+stress_amplitude = st.sidebar.slider("Stress level (u)", min_value=1.0, max_value=10.0, value=3.0, step=0.1, 
+                                  help="Value of u during stress period")
+stress_start_hours = st.sidebar.slider("Stress start time (hours)", min_value=0.0, 
+                                   max_value=float(T_in_hours-1), value=5.0, step=0.5)
+stress_duration_hours = st.sidebar.slider("Stress duration (hours)", min_value=0.1, 
+                                     max_value=float(T_in_hours-stress_start_hours), value=2.0, step=0.1)
+
+# Convert hours to minutes for simulation
+stress_start = stress_start_hours * 60
+stress_duration = stress_duration_hours * 60
 
 # Pack parameters
 params = (a1, b1, a2, b2, a3, b3, k, u, kgr)
@@ -87,10 +119,16 @@ x0 = steady_state
 T = T_in_hours * 60
 t = np.linspace(0, T, n_points)
 
+# Create stress parameters if enabled
+stress_params = None
+if enable_stress:
+    stress_params = (stress_amplitude, stress_start, stress_duration)
+
 # Simulate the system
-sol = sde_solver_system(hpa_drift, x0, t, sigma, params, amplitude, period)
+sol = sde_solver_system(hpa_drift, x0, t, sigma, params, amplitude, period, stress_params)
 if st.checkbox("Normalise the concentrations"):
     sol = sol / np.max(sol, axis=0)
+    
 # Plotting
 t = t / 60  # Convert time to hours
 fig = go.Figure()
@@ -98,6 +136,20 @@ fig.add_trace(go.Scatter(x=t, y=sol[:, 0], mode="lines", name="x1"))
 fig.add_trace(go.Scatter(x=t, y=sol[:, 1], mode="lines", name="x2"))
 fig.add_trace(go.Scatter(x=t, y=sol[:, 2], mode="lines", name="x3"))
 fig.add_trace(go.Scatter(x=t, y=sol[:, 3], mode="lines", name="x3b"))
+
+# Add shaded region for stress period if enabled
+if enable_stress:
+    fig.add_vrect(
+        x0=stress_start_hours,
+        x1=stress_start_hours + stress_duration_hours,
+        fillcolor="rgba(255, 0, 0, 0.1)",
+        opacity=0.5,
+        layer="below",
+        line_width=0,
+        annotation_text="Stress Period",
+        annotation_position="top left",
+    )
+
 fig.update_layout(
     title="HPA Axis Simulation",
     xaxis_title="Time (hours)",
@@ -110,7 +162,6 @@ fig.update_xaxes(showgrid=True)
 fig.update_yaxes(showgrid=True)
 
 st.plotly_chart(fig)
-
 
 # SVG Download
 filename = st.text_input("Filename", "hpa_simulation")
