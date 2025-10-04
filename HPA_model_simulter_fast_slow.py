@@ -3,53 +3,6 @@ import numpy as np
 from scipy.optimize import fsolve
 import plotly.graph_objects as go
 
-
-# deal with streamlit entropy session states
-if "entropy" not in st.session_state:
-    st.session_state.entropy = int(np.random.SeedSequence().entropy)
-if "entropy_input" not in st.session_state:
-    st.session_state.entropy_input = "" # the input must be a textinput due to streamlit numberinput max value
-
-# function to generate random noise with optional seed
-def generate_noise(t: np.ndarray, entropy: int = None) -> np.ndarray:
-    # use the generator pattern from numpy
-    dt = t[1] - t[0]
-    sq = (
-        np.random.SeedSequence(entropy)
-        if entropy is not None
-        else np.random.SeedSequence()
-    )
-    rng = np.random.default_rng(sq)
-    return rng.normal(scale=np.sqrt(dt), size=len(t))  # original noise 
-
-
-def add_entropy_controls():
-    # entropy: random on first run, persisted across reruns, user-adjustable
-    # see notes at numpy.random.SeedSequence() documentation regarding best practices
-
-    def _handle_new_entropy_input():  # private callback function for the entropy label
-        # try to convert the input to an integer. must use try/except to handle bad input
-        try:
-            st.session_state.entropy = int(st.session_state.entropy_input)
-        except (ValueError, TypeError):
-            pass  # keep previous entropy value on bad input
-
-    if st.sidebar.button("Randomize entropy"):
-        st.session_state.entropy = int(np.random.SeedSequence().entropy)
-        # update the input since we've hit the button
-        st.session_state.entropy_input = None
-
-    st.sidebar.caption(f"Using entropy: {st.session_state.entropy}")
-
-    st.sidebar.text_input(
-        "Entropy manual override (please only use numbers)",
-        key="entropy_input",
-        on_change=_handle_new_entropy_input,
-    )
-
-    return st.session_state.entropy
-
-
 # Drift function for the HPA axis
 def hpa_drift(x, t, a1, b1, a2, b2, a3, b3, k, u, kgr):
     x1, x2, x3, x3b = x
@@ -105,6 +58,51 @@ def sde_solver_system(
         x[i][0] += sigma * dw + sin_wave  # Apply noise and sin wave to x1
     return x
 
+# deal with streamlit entropy session states
+if "entropy" not in st.session_state:
+    st.session_state.entropy = int(np.random.SeedSequence().entropy)
+if "entropy_input" not in st.session_state:
+    st.session_state.entropy_input = "" # the input must be a textinput due to streamlit numberinput max value
+
+# function to generate random noise with optional seed
+def generate_noise(t: np.ndarray, entropy: int = None) -> np.ndarray:
+    # use the generator pattern from numpy
+    dt = t[1] - t[0]
+    sq = (
+        np.random.SeedSequence(entropy)
+        if entropy is not None
+        else np.random.SeedSequence()
+    )
+    rng = np.random.default_rng(sq)
+    return rng.normal(scale=np.sqrt(dt), size=len(t))  # original noise 
+
+
+def add_entropy_controls():
+    # entropy: random on first run, persisted across reruns, user-adjustable
+    # see notes at numpy.random.SeedSequence() documentation regarding best practices
+
+    def _handle_new_entropy_input():  # private callback function for the entropy label
+        # try to convert the input to an integer. must use try/except to handle bad input
+        try:
+            st.session_state.entropy = int(st.session_state.entropy_input)
+        except (ValueError, TypeError):
+            pass  # keep previous entropy value on bad input
+
+    if st.sidebar.button("Randomize entropy"):
+        st.session_state.entropy = int(np.random.SeedSequence().entropy)
+        # update the input since we've hit the button
+        st.session_state.entropy_input = ""
+
+    st.sidebar.caption(f"Using entropy: {st.session_state.entropy}")
+
+    st.sidebar.text_input(
+        "Entropy manual override",
+        help="please use only numbers",
+        key="entropy_input",
+        on_change=_handle_new_entropy_input,
+    )
+
+    return st.session_state.entropy
 
 st.title("HPA Axis Fast-Slow Simulation")
 st.write(
@@ -289,7 +287,6 @@ st.markdown(
    - $ u $: External stimulus
    - $ a_1 $: Degradation rate of CRH
    - $ k_{gr} $: Concentration of cortisol at which the GR response is at half of its maximum effectiveness (EC50).
-   - 
 
 2. **Equation for $ \\frac{dx_2}{dt} $**:
    $$\\frac{dx_2}{dt} = b_2 x_1 \\frac{1}{1 + \\left(\\frac{x_3}{k_{gr}}\\right)^3} - a_2 x_2$$
@@ -314,3 +311,5 @@ st.markdown(
    - $ a_3 x_{3b} $: Degradation rate of cortisol in the BBB
     """
 )
+
+
