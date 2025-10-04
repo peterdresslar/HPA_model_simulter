@@ -11,3 +11,5 @@ https://github.com/AlonLabWIS/HPA_model_simulter
 It was then extended using observations from the paper, Milo, T., Nir Halber, S., Raz, M., Danan, D., Mayo, A., & Alon, U. (2025). Hormone circuit explains why most HPA drugs fail for mood disorders and predicts the few that work. Molecular Systems Biology, 21(3), 254–273. https://doi.org/10.1038/s44320-024-00083-0. We have reviewed functions of the HPA_full model from the sample code at the location specified in that paper: https://github.com/tomermilo/hpa-drugs
 
 Our model is called HPA Model Simulter Fast Slow. It was created by Peter Dresslar as part of the Arizona State University Complex Systems class taught by Prof. Enrico Borriello.
+
+To run locally `uv run streamlit run HPA_model_simulter_fast_slow.py`.
