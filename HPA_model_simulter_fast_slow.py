@@ -4,7 +4,7 @@ from scipy.optimize import fsolve
 import plotly.graph_objects as go
 
 # Drift function for the HPA axis hormones
-def hpa_hormones_fast(x, t, a1, b1, a2, b2, a3, b3, bP, bA, kP, kA, k, u, kgr):
+def hpa_hormones_fast(x, t, a1, b1, a2, b2, a3, b3, bP, bA, aP, aA, kP, kA, k, u, kgr):
     x1, x2, x3, x3b, P, A = x
     # Avoid division-by-zero
     x3 = max(x3, 1e-6)
@@ -20,15 +20,15 @@ def hpa_hormones_fast(x, t, a1, b1, a2, b2, a3, b3, bP, bA, kP, kA, k, u, kgr):
 
 # handle glands on the "slow axis"
 # see Milo 2025 paper and supplementary material
-def glands_drift_slow(x, t, a1, b1, a2, b2, a3, b3, bP, bA, kP, kA, k, u, kgr):
+def glands_drift_slow(x, t, a1, b1, a2, b2, a3, b3, bP, bA, aP, aA, kP, kA, k, u, kgr):
     x1, x2, x3, x3b, P, A = x
-    dP = bP * P * (x1 * (1 - P/kP) - 1)
-    dA = bA * A * (x2 * (1 - A/kA) - 1)
+    dP = bP * (P * x1 * (1 - P/kP) - aP)    # aP varies from the notebook code but matches the paper
+    dA = bA * (A * x2 * (1 - A/kA) - aA)    # aA varies from the notebook code but matches the paper
     return np.array([dP, dA])
 
-def hpa_system(x, t, a1, b1, a2, b2, a3, b3, bP, bA, kP, kA, k, u, kgr):
-    fast = hpa_hormones_fast(x, t, a1, b1, a2, b2, a3, b3, bP, bA, kP, kA, k, u, kgr)
-    slow = glands_drift_slow(x, t, a1, b1, a2, b2, a3, b3, bP, bA, kP, kA, k, u, kgr)
+def hpa_system(x, t, a1, b1, a2, b2, a3, b3, bP, bA, aP, aA, kP, kA, k, u, kgr):
+    fast = hpa_hormones_fast(x, t, a1, b1, a2, b2, a3, b3, bP, bA, aP, aA, kP, kA, k, u, kgr)
+    slow = glands_drift_slow(x, t, a1, b1, a2, b2, a3, b3, bP, bA, aP, aA, kP, kA, k, u, kgr)
     return np.concatenate([fast, slow]) # bundle the fast and slow axes into a 6-dimensional array
 
 
@@ -52,7 +52,7 @@ def sde_solver_system(
         sin_wave = amplitude * np.sin(2 * np.pi * t[i - 1] / period)
 
         # Calculate current u based on stress parameters
-        current_u = params[7]  # Original u value
+        current_u = params[13]  # Original u value
 
         # Apply stress if within the stress period
         if stress_params and stress_start <= t[i - 1] < (
@@ -62,7 +62,7 @@ def sde_solver_system(
 
         # Create parameters with updated u
         current_params = list(params)
-        current_params[7] = current_u
+        current_params[13] = current_u
 
         dw = noise[
             i - 1
@@ -133,11 +133,8 @@ st.latex(
 """
 )
 
-# Sidebar controls for parameters
-st.sidebar.title("Simulation Parameters")
-
 # Parameters for the hormones
-st.sidebar.title("Hormones Parameters")
+st.sidebar.title("Hormone Layer Parameters")
 a1 = st.sidebar.number_input("a1", min_value=0.0, max_value=2.0, value=0.17, step=1e-4)
 b1 = st.sidebar.number_input("b1", min_value=0.0, max_value=2.0, value=0.255, step=1e-4)
 a2 = st.sidebar.number_input("a2", min_value=0.0, max_value=2.0, value=0.07, step=1e-4)
@@ -150,9 +147,11 @@ k = st.sidebar.number_input("k", min_value=0.0, max_value=2.0, value=0.05, step=
 u = st.sidebar.number_input("u", min_value=0.0, max_value=5.0, value=1.0, step=0.1)
 kgr = st.sidebar.number_input("kgr", min_value=0.1, max_value=10.0, value=5.0, step=0.1)
 
-st.sidebar.title("Glands Parameters")
+st.sidebar.title("Gland Layer Parameters")
 bP = st.sidebar.number_input("bP", min_value=0.0, max_value=2.0, value=0.01, step=1e-4)
 bA = st.sidebar.number_input("bA", min_value=0.0, max_value=2.0, value=0.01, step=1e-4)
+aP = st.sidebar.number_input("aP", min_value=0.0, max_value=2.0, value=0.01, step=1e-4)
+aA = st.sidebar.number_input("aA", min_value=0.0, max_value=2.0, value=0.01, step=1e-4)
 kP = st.sidebar.number_input("KP", min_value=0.0, max_value=2.0, value=1.0, step=0.1)
 kA = st.sidebar.number_input("KA", min_value=0.0, max_value=2.0, value=1.0, step=0.1)
 
@@ -214,7 +213,8 @@ stress_start = stress_start_hours * 60
 stress_duration = stress_duration_hours * 60
 
 # Pack parameters
-params = (a1, b1, a2, b2, a3, b3, bP, bA, kP, kA, k, u, kgr)
+#         0   1   2   3   4   5   6   7   8   9   10  11  12 13 14
+params = (a1, b1, a2, b2, a3, b3, bP, bA, aP, aA, kP, kA, k, u, kgr)
 
 
 # Compute steady-state initial conditions
