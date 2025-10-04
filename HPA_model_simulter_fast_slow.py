@@ -204,10 +204,10 @@ sigma = st.sidebar.slider(
     "Noise Level (sigma)", min_value=0.0, max_value=1.0, value=0.2, step=0.01
 )
 T_in_hours = st.sidebar.slider(
-    "Simulation Time (hours)", min_value=1, max_value=24*14, value=240, step=1
+    "Simulation Time (hours)", min_value=1, max_value=24*60, value=720, step=1
 )
 n_points = st.sidebar.slider(
-    "Time Steps", min_value=100, max_value=5000, value=2500, step=50
+    "Time Steps", min_value=100, max_value=10000, value=5000, step=50
 )
 
 # Simulation time
@@ -222,12 +222,12 @@ noise = generate_noise(t, entropy)  # returns array size of t
 
 # Add stress simulation parameters
 st.sidebar.title("Stress Parameters")
-enable_stress = st.sidebar.checkbox("Enable stress simulation", value=False)
+enable_stress = st.sidebar.checkbox("Enable stress simulation", value=True)
 stress_amplitude = st.sidebar.slider(
     "Stress level (u)",
     min_value=1.0,
     max_value=10.0,
-    value=3.0,
+    value=6.0,
     step=0.1,
     help="Value of u during stress period",
 )
@@ -235,14 +235,14 @@ stress_start_hours = st.sidebar.slider(
     "Stress start time (hours)",
     min_value=0.0,
     max_value=float(T_in_hours - 1),
-    value=5.0,
+    value=24.0,
     step=0.5,
 )
 stress_duration_hours = st.sidebar.slider(
     "Stress duration (hours)",
     min_value=0.1,
     max_value=float(T_in_hours - stress_start_hours),
-    value=2.0,
+    value=24.0,
     step=0.1,
 )
 
