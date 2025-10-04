@@ -151,7 +151,7 @@ T_in_hours = st.sidebar.slider(
     "Simulation Time (hours)", min_value=1, max_value=48, value=24, step=1
 )
 n_points = st.sidebar.slider(
-    "Time Steps", min_value=100, max_value=5000, value=400, step=50
+    "Time Steps", min_value=100, max_value=1000, value=400, step=50
 )
 
 # Simulation time
