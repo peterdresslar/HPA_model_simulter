@@ -3,9 +3,9 @@ import numpy as np
 from scipy.optimize import fsolve
 import plotly.graph_objects as go
 
-# Drift function for the HPA axis
-def hpa_drift(x, t, a1, b1, a2, b2, a3, b3, k, u, kgr):
-    x1, x2, x3, x3b = x
+# Drift function for the HPA axis hormones
+def hpa_hormones_fast(x, t, a1, b1, a2, b2, a3, b3, bP, bA, kP, kA, k, u, kgr):
+    x1, x2, x3, x3b, P, A = x
     # Avoid division-by-zero
     x3 = max(x3, 1e-6)
     x3b = max(x3b, 1e-6)
@@ -13,10 +13,23 @@ def hpa_drift(x, t, a1, b1, a2, b2, a3, b3, k, u, kgr):
     gr = 1.0 / (1 + (x3 / kgr) ** 3)
     grb = 1.0 / (1 + (x3b / kgr) ** 3)
     dx1 = b1 * grb * mrb * u - a1 * x1
-    dx2 = b2 * x1 * gr - a2 * x2
-    dx3 = b3 * x2 - a3 * x3
+    dx2 = b2 * x1 * P * gr - a2 * x2
+    dx3 = b3 * x2 * A - a3 * x3
     dx3b = k * (x3 - x3b) - a3 * x3b
     return np.array([dx1, dx2, dx3, dx3b])
+
+# handle glands on the "slow axis"
+# see Milo 2025 paper and supplementary material
+def glands_drift_slow(x, t, a1, b1, a2, b2, a3, b3, bP, bA, kP, kA, k, u, kgr):
+    x1, x2, x3, x3b, P, A = x
+    dP = bP * P * (x1 * (1 - P/kP) - 1)
+    dA = bA * A * (x2 * (1 - A/kA) - 1)
+    return np.array([dP, dA])
+
+def hpa_system(x, t, a1, b1, a2, b2, a3, b3, bP, bA, kP, kA, k, u, kgr):
+    fast = hpa_hormones_fast(x, t, a1, b1, a2, b2, a3, b3, bP, bA, kP, kA, k, u, kgr)
+    slow = glands_drift_slow(x, t, a1, b1, a2, b2, a3, b3, bP, bA, kP, kA, k, u, kgr)
+    return np.concatenate([fast, slow]) # bundle the fast and slow axes into a 6-dimensional array
 
 
 # Euler–Maruyama SDE solver for systems
@@ -123,7 +136,8 @@ st.latex(
 # Sidebar controls for parameters
 st.sidebar.title("Simulation Parameters")
 
-# Parameters for the drift function
+# Parameters for the hormones
+st.sidebar.title("Hormones Parameters")
 a1 = st.sidebar.number_input("a1", min_value=0.0, max_value=2.0, value=0.17, step=1e-4)
 b1 = st.sidebar.number_input("b1", min_value=0.0, max_value=2.0, value=0.255, step=1e-4)
 a2 = st.sidebar.number_input("a2", min_value=0.0, max_value=2.0, value=0.07, step=1e-4)
@@ -135,6 +149,13 @@ b3 = st.sidebar.number_input("b3", min_value=0.0, max_value=2.0, value=0.086, st
 k = st.sidebar.number_input("k", min_value=0.0, max_value=2.0, value=0.05, step=1e-4)
 u = st.sidebar.number_input("u", min_value=0.0, max_value=5.0, value=1.0, step=0.1)
 kgr = st.sidebar.number_input("kgr", min_value=0.1, max_value=10.0, value=5.0, step=0.1)
+
+st.sidebar.title("Glands Parameters")
+bP = st.sidebar.number_input("bP", min_value=0.0, max_value=2.0, value=0.01, step=1e-4)
+bA = st.sidebar.number_input("bA", min_value=0.0, max_value=2.0, value=0.01, step=1e-4)
+kP = st.sidebar.number_input("KP", min_value=0.0, max_value=2.0, value=1.0, step=0.1)
+kA = st.sidebar.number_input("KA", min_value=0.0, max_value=2.0, value=1.0, step=0.1)
+
 amplitude = st.sidebar.slider(
     "Amplitude of sin wave", min_value=0.0, max_value=1.0, value=0.3, step=0.01
 )
@@ -193,15 +214,15 @@ stress_start = stress_start_hours * 60
 stress_duration = stress_duration_hours * 60
 
 # Pack parameters
-params = (a1, b1, a2, b2, a3, b3, k, u, kgr)
+params = (a1, b1, a2, b2, a3, b3, bP, bA, kP, kA, k, u, kgr)
 
 
 # Compute steady-state initial conditions
 def f_to_solve(x):
-    return hpa_drift(x, 0, *params)
+    return hpa_system(x, 0, *params)
 
 
-guess = [1.0, 1.0, 1.0, 1.0]
+guess = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 steady_state = fsolve(f_to_solve, guess)
 x0 = steady_state
 
@@ -212,12 +233,12 @@ if enable_stress:
 
 # Simulate the system
 sol = sde_solver_system(
-    hpa_drift, x0, t, sigma, params, amplitude, period, noise, stress_params
+    hpa_system, x0, t, sigma, params, amplitude, period, noise, stress_params
 )
 if st.checkbox("Normalise the concentrations"):
     sol = sol / np.max(sol, axis=0)
 
-# Plotting
+# Plotting for the hormone layer
 t = t / 60  # Convert time to hours
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=t, y=sol[:, 0], mode="lines", name="x1"))
@@ -239,7 +260,7 @@ if enable_stress:
     )
 
 fig.update_layout(
-    title="HPA Axis Simulation",
+    title="Hormone Layer Simulation",
     xaxis_title="Time (hours)",
     yaxis_title="Concentrations",
     template="plotly_white",
@@ -251,25 +272,49 @@ fig.update_yaxes(showgrid=True)
 
 st.plotly_chart(fig)
 
+# Plotting for the gland layer
+fig2 = go.Figure()
+fig2.add_trace(go.Scatter(x=t, y=sol[:, 4], mode="lines", name="P"))
+fig2.add_trace(go.Scatter(x=t, y=sol[:, 5], mode="lines", name="A"))
+
+fig2.update_layout(
+    title="Gland Layer Simulation",
+    xaxis_title="Time (hours)",
+    yaxis_title="Functional Mass",
+    template="plotly_white",
+)
+fig2.update_xaxes(showgrid=True)
+fig.update_yaxes(showgrid=True)
+
+st.plotly_chart(fig2)
+
 # SVG Download
 filename = st.text_input("Filename", "hpa_simulation")
 if "svg_data" not in st.session_state:
     st.session_state.svg_data = None
-
+if "svg_data2" not in st.session_state:
+    st.session_state.svg_data2 = None
 
 def fig_to_svg(fig):
     img_bytes = fig.to_image(format="svg")
     return img_bytes.decode("utf-8")
 
-
-if st.button("Convert Plot to SVG"):
+if st.button("Convert Plots to SVG"):
     st.session_state.svg_data = fig_to_svg(fig)
+    st.session_state.svg_data2 = fig_to_svg(fig2)
 
 if st.session_state.svg_data is not None:
     st.download_button(
-        label="Download Plot as SVG",
+        label="Download Hormone Layer Plot as SVG",
         data=st.session_state.svg_data.encode("utf-8"),
         file_name=f"{filename}.svg",
+        mime="image/svg+xml",
+    )
+if st.session_state.svg_data2 is not None:
+    st.download_button(
+        label="Download Gland Layer Plot as SVG",
+        data=st.session_state.svg_data2.encode("utf-8"),
+        file_name=f"{filename}_gland.svg",
         mime="image/svg+xml",
     )
 
