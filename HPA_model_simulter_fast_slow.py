@@ -204,10 +204,10 @@ sigma = st.sidebar.slider(
     "Noise Level (sigma)", min_value=0.0, max_value=1.0, value=0.2, step=0.01
 )
 T_in_hours = st.sidebar.slider(
-    "Simulation Time (hours)", min_value=1, max_value=24*14, value=48, step=1
+    "Simulation Time (hours)", min_value=1, max_value=24*14, value=240, step=1
 )
 n_points = st.sidebar.slider(
-    "Time Steps", min_value=100, max_value=5000, value=2000, step=50
+    "Time Steps", min_value=100, max_value=5000, value=2500, step=50
 )
 
 # Simulation time
@@ -273,8 +273,10 @@ if enable_stress:
 sol = sde_solver_system(
     hpa_system, x0, t, sigma, params, amplitude, period, noise, stress_params
 )
-if st.checkbox("Normalise the concentrations"):
-    sol = sol / np.max(sol, axis=0)
+if st.checkbox("Normalise hormone concentrations"): # do not normalize glands!
+    sol_normalized = sol.copy()
+    sol_normalized[:, 0:4] = sol[:, 0:4] / np.max(sol[:, 0:4], axis=0)  # only hormones
+    sol = sol_normalized
 
 # Plotting for the hormone layer
 t = t / 60  # Convert time to hours
