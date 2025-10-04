@@ -127,14 +127,24 @@ st.write(
     "This app simulates the HPA axis using a system of stochastic differential equations (SDE) with a fast-slow relationship."
 )
 st.write("The equations of the HPA axis model are:")
+st.write("**Fast layer (hormones):**")
 st.latex(
     r"""
 \begin{aligned}
 \frac{dx_1}{dt} &= b_1 \frac{1}{1 + \left(\frac{x_{3b}}{k_{gr}}\right)^3} \frac{1}{x_{3b}} u - a_1 x_1 \\
-\frac{dx_2}{dt} &= b_2 x_1 \frac{1}{1 + \left(\frac{x_3}{k_{gr}}\right)^3} - a_2 x_2 \\
-\frac{dx_3}{dt} &= b_3 x_2 - a_3 x_3 \\
+\frac{dx_2}{dt} &= b_2 x_1 P \frac{1}{1 + \left(\frac{x_3}{k_{gr}}\right)^3} - a_2 x_2 \\
+\frac{dx_3}{dt} &= b_3 x_2 A - a_3 x_3 \\
 \frac{dx_{3b}}{dt} &= k (x_3-x_{3b}) - a_3 x_{3b}
 \end{aligned}
+"""
+)
+st.write("**Slow layer (glands):**")
+st.latex(
+    r"""
+\begin{aligned}
+\frac{dP}{dt} &= P \left( b_P x_1 \left(1 - \frac{P}{K_P}\right) - a_P \right) \\
+\frac{dA}{dt} &= A \left( b_A x_2 \left(1 - \frac{A}{K_A}\right) - a_A \right)
+\end{aligned})
 """
 )
 
@@ -363,37 +373,68 @@ st.markdown(
 
 ### Summary of the HPA Axis Model
 
+#### Fast Layer (Hormone Cascade)
+
 1. **Equation for $ \\frac{dx_1}{dt} $**:
    $$\\frac{dx_1}{dt} = b_1 \\frac{1}{1 + \\left(\\frac{x_{3b}}{k_{gr}}\\right)^3} \\frac{1}{x_{3b}} u - a_1 x_1$$
    - $ x_1 $: CRH (Corticotropin-Releasing Hormone)
    - $ b_1 $: Production rate constant for CRH
    - $ \\frac{1}{1 + \\left(\\frac{x_{3b}}{k_{gr}}\\right)^3} $: GR (Glucocorticoid Receptor) response inside the BBB (Blood-Brain Barrier)
    - $ \\frac{1}{x_{3b}} $: MR (Mineralocorticoid Receptor) response
-   - $ u $: External stimulus
+   - $ u $: External stimulus (stressor input)
    - $ a_1 $: Degradation rate of CRH
-   - $ k_{gr} $: Concentration of cortisol at which the GR response is at half of its maximum effectiveness (EC50).
+   - $ k_{gr} $: Glucocorticoid receptor dissociation constant (EC50)
 
 2. **Equation for $ \\frac{dx_2}{dt} $**:
-   $$\\frac{dx_2}{dt} = b_2 x_1 \\frac{1}{1 + \\left(\\frac{x_3}{k_{gr}}\\right)^3} - a_2 x_2$$
-   - $ x_2 $: Another form of CRH
-   - $ b_2 $: Production rate constant for this form of CRH
-   - $ x_1 $: Precursor CRH
-   - $ \\frac{1}{1 + \\left(\\frac{x_3}{k_{gr}}\\right)^3} $: GR response (outside the BBB)
-   - $ a_2 $: Degradation rate of this form of CRH
+   $$\\frac{dx_2}{dt} = b_2 x_1 P \\frac{1}{1 + \\left(\\frac{x_3}{k_{gr}}\\right)^3} - a_2 x_2$$
+   - $ x_2 $: ACTH (Adrenocorticotropic Hormone)
+   - $ P $: Pituitary corticotroph functional mass (scales ACTH production)
+   - $ b_2 $: Production rate constant for ACTH
+   - $ x_1 $: CRH (upstream signal)
+   - $ \\frac{1}{1 + \\left(\\frac{x_3}{k_{gr}}\\right)^3} $: GR negative feedback (outside the BBB)
+   - $ a_2 $: Degradation rate of ACTH
 
 3. **Equation for $ \\frac{dx_3}{dt} $**:
-   $$\\frac{dx_3}{dt} = b_3 x_2 - a_3 x_3$$
-   - $ x_3 $: Cortisol
+   $$\\frac{dx_3}{dt} = b_3 x_2 A - a_3 x_3$$
+   - $ x_3 $: Cortisol (in blood)
+   - $ A $: Adrenal cortex functional mass (scales cortisol production)
    - $ b_3 $: Production rate constant for cortisol
-   - $ x_2 $: Precursor CRH
+   - $ x_2 $: ACTH (upstream signal)
    - $ a_3 $: Degradation rate of cortisol
 
 4. **Equation for $ \\frac{dx_{3b}}{dt} $**:
    $$\\frac{dx_{3b}}{dt} = k (x_3 - x_{3b}) - a_3 x_{3b}$$
-   - $ x_{3b} $: Cortisol in the BBB
+   - $ x_{3b} $: Cortisol inside the BBB (brain compartment)
    - $ k $: Transfer rate constant between blood and brain
-   - $ x_3 $: Cortisol
-   - $ a_3 x_{3b} $: Degradation rate of cortisol in the BBB
+   - $ x_3 $: Cortisol in blood
+   - $ a_3 $: Degradation rate of cortisol in the BBB
+
+
+### Slow Layer (Gland Adaptation)
+
+5. **Equation for $ \\frac{dP}{dt} $**:
+   $$\\frac{dP}{dt} = P \\left( b_P x_1 \\left(1 - \\frac{P}{K_P}\\right) - a_P \\right)$$
+   - $ P $: Pituitary corticotroph functional mass
+   - $ b_P $: Growth rate of pituitary tissue (driven by CRH)
+   - $ a_P $: Removal rate of pituitary tissue
+   - $ K_P $: Pituitary carrying capacity
+   - $ \\left(1 - \\frac{P}{K_P}\\right) $: Logistic growth term (prevents unbounded growth)
+
+6. **Equation for $ \\frac{dA}{dt} $**:
+   $$\\frac{dA}{dt} = A \\left( b_A x_2 \\left(1 - \\frac{A}{K_A}\\right) - a_A \\right)$$
+   - $ A $: Adrenal cortex functional mass
+   - $ b_A $: Growth rate of adrenal tissue (driven by ACTH)
+   - $ a_A $: Removal rate of adrenal tissue
+   - $ K_A $: Adrenal carrying capacity
+   - $ \\left(1 - \\frac{A}{K_A}\\right) $: Logistic growth term
+
+#### Timescale Separation
+
+- **Fast layer:** Hormones equilibrate on the scale of minutes to hours
+- **Slow layer:** Glands adapt on the scale of weeks to months (half-life ~20-30 days)
+- This separation enables **dynamical compensation** - glands adjust their mass to buffer shocks (see plots), explaining why, according to Milo et al. 2025, HPA-targeting drugs fail in chronic stress conditions
+
+**Reference:** Milo et al. (2025) "Hormone circuit explains why most HPA drugs fail for mood disorders and predicts the few that work" *Molecular Systems Biology* 21(3):254-273
     """
 )
 
