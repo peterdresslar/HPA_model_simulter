@@ -4,6 +4,52 @@ from scipy.optimize import fsolve
 import plotly.graph_objects as go
 
 
+# deal with streamlit entropy session states
+if "entropy" not in st.session_state:
+    st.session_state.entropy = int(np.random.SeedSequence().entropy)
+if "entropy_input" not in st.session_state:
+    st.session_state.entropy_input = "" # the input must be a textinput due to streamlit numberinput max value
+
+# function to generate random noise with optional seed
+def generate_noise(t: np.ndarray, entropy: int = None) -> np.ndarray:
+    # use the generator pattern from numpy
+    dt = t[1] - t[0]
+    sq = (
+        np.random.SeedSequence(entropy)
+        if entropy is not None
+        else np.random.SeedSequence()
+    )
+    rng = np.random.default_rng(sq)
+    return rng.normal(scale=np.sqrt(dt), size=len(t))  # original noise 
+
+
+def add_entropy_controls():
+    # entropy: random on first run, persisted across reruns, user-adjustable
+    # see notes at numpy.random.SeedSequence() documentation regarding best practices
+
+    def _handle_new_entropy_input():  # private callback function for the entropy label
+        # try to convert the input to an integer. must use try/except to handle bad input
+        try:
+            st.session_state.entropy = int(st.session_state.entropy_input)
+        except (ValueError, TypeError):
+            pass  # keep previous entropy value on bad input
+
+    if st.sidebar.button("Randomize entropy"):
+        st.session_state.entropy = int(np.random.SeedSequence().entropy)
+        # update the input since we've hit the button
+        st.session_state.entropy_input = None
+
+    st.sidebar.caption(f"Using entropy: {st.session_state.entropy}")
+
+    st.sidebar.text_input(
+        "Entropy manual override (please only use numbers)",
+        key="entropy_input",
+        on_change=_handle_new_entropy_input,
+    )
+
+    return st.session_state.entropy
+
+
 # Drift function for the HPA axis
 def hpa_drift(x, t, a1, b1, a2, b2, a3, b3, k, u, kgr):
     x1, x2, x3, x3b = x
@@ -21,41 +67,49 @@ def hpa_drift(x, t, a1, b1, a2, b2, a3, b3, k, u, kgr):
 
 
 # Euler–Maruyama SDE solver for systems
-def sde_solver_system(drift, x0, t, sigma, params, amplitude, period, stress_params=None):
+def sde_solver_system(
+    drift, x0, t, sigma, params, amplitude, period, noise, stress_params=None
+):
     n = len(t)
     d = len(x0)
     x = np.zeros((n, d))
     x[0] = x0
     dt = t[1] - t[0]
-    
+
     # Unpack stress parameters
     if stress_params:
         stress_amplitude, stress_start, stress_duration = stress_params
     else:
         stress_amplitude, stress_start, stress_duration = 0, 0, 0
-        
+
     for i in range(1, n):
         sin_wave = amplitude * np.sin(2 * np.pi * t[i - 1] / period)
-        
+
         # Calculate current u based on stress parameters
         current_u = params[7]  # Original u value
-        
+
         # Apply stress if within the stress period
-        if stress_params and stress_start <= t[i - 1] < (stress_start + stress_duration):
+        if stress_params and stress_start <= t[i - 1] < (
+            stress_start + stress_duration
+        ):
             current_u = stress_amplitude
-        
+
         # Create parameters with updated u
         current_params = list(params)
         current_params[7] = current_u
-        
-        dw = np.random.normal(scale=np.sqrt(dt))  # Single noise term for x1
+
+        dw = noise[
+            i - 1
+        ]  # updated from a prior version that generated noise inside the function, we are now passing in an array and consuming per-step
         x[i] = x[i - 1] + drift(x[i - 1], t[i - 1], *current_params) * dt
         x[i][0] += sigma * dw + sin_wave  # Apply noise and sin wave to x1
     return x
 
 
-st.title("HPA Axis Simulation using Stochastic Differential Equations (SDE)")
-st.write("This app simulates the HPA axis using a system of stochastic differential equations (SDE).")
+st.title("HPA Axis Fast-Slow Simulation")
+st.write(
+    "This app simulates the HPA axis using a system of stochastic differential equations (SDE) with a fast-slow relationship."
+)
 st.write("The equations of the HPA axis model are:")
 st.latex(
     r"""
@@ -76,27 +130,65 @@ a1 = st.sidebar.number_input("a1", min_value=0.0, max_value=2.0, value=0.17, ste
 b1 = st.sidebar.number_input("b1", min_value=0.0, max_value=2.0, value=0.255, step=1e-4)
 a2 = st.sidebar.number_input("a2", min_value=0.0, max_value=2.0, value=0.07, step=1e-4)
 b2 = st.sidebar.number_input("b2", min_value=0.0, max_value=2.0, value=0.14, step=1e-4)
-a3 = st.sidebar.number_input("a3", min_value=0.0, max_value=2.0, value=0.0086, step=1e-4)
+a3 = st.sidebar.number_input(
+    "a3", min_value=0.0, max_value=2.0, value=0.0086, step=1e-4
+)
 b3 = st.sidebar.number_input("b3", min_value=0.0, max_value=2.0, value=0.086, step=1e-4)
 k = st.sidebar.number_input("k", min_value=0.0, max_value=2.0, value=0.05, step=1e-4)
 u = st.sidebar.number_input("u", min_value=0.0, max_value=5.0, value=1.0, step=0.1)
 kgr = st.sidebar.number_input("kgr", min_value=0.1, max_value=10.0, value=5.0, step=0.1)
-amplitude = st.sidebar.slider("Amplitude of sin wave", min_value=0.0, max_value=1.0, value=0.3, step=0.01)
-period_in_hours = st.sidebar.slider("Period of sin wave (hours)", min_value=1, max_value=24, value=24, step=1)
+amplitude = st.sidebar.slider(
+    "Amplitude of sin wave", min_value=0.0, max_value=1.0, value=0.3, step=0.01
+)
+period_in_hours = st.sidebar.slider(
+    "Period of sin wave (hours)", min_value=1, max_value=24, value=24, step=1
+)
 period = period_in_hours * 60  # Convert hours to minutes
-sigma = st.sidebar.slider("Noise Level (sigma)", min_value=0.0, max_value=1.0, value=0.2, step=0.01)
-T_in_hours = st.sidebar.slider("Simulation Time (hours)", min_value=1, max_value=48, value=24, step=1)
-n_points = st.sidebar.slider("Time Steps", min_value=100, max_value=1000, value=400, step=50)
+sigma = st.sidebar.slider(
+    "Noise Level (sigma)", min_value=0.0, max_value=1.0, value=0.2, step=0.01
+)
+T_in_hours = st.sidebar.slider(
+    "Simulation Time (hours)", min_value=1, max_value=48, value=24, step=1
+)
+n_points = st.sidebar.slider(
+    "Time Steps", min_value=100, max_value=5000, value=400, step=50
+)
+
+# Simulation time
+T = T_in_hours * 60
+t = np.linspace(0, T, n_points)
+
+st.sidebar.title("Noise Controls")
+entropy =add_entropy_controls()
+
+# now we should be able to generate the noise under a controlled entropy condition
+noise = generate_noise(t, entropy)  # returns array size of t
 
 # Add stress simulation parameters
 st.sidebar.title("Stress Parameters")
 enable_stress = st.sidebar.checkbox("Enable stress simulation", value=False)
-stress_amplitude = st.sidebar.slider("Stress level (u)", min_value=1.0, max_value=10.0, value=3.0, step=0.1, 
-                                  help="Value of u during stress period")
-stress_start_hours = st.sidebar.slider("Stress start time (hours)", min_value=0.0, 
-                                   max_value=float(T_in_hours-1), value=5.0, step=0.5)
-stress_duration_hours = st.sidebar.slider("Stress duration (hours)", min_value=0.1, 
-                                     max_value=float(T_in_hours-stress_start_hours), value=2.0, step=0.1)
+stress_amplitude = st.sidebar.slider(
+    "Stress level (u)",
+    min_value=1.0,
+    max_value=10.0,
+    value=3.0,
+    step=0.1,
+    help="Value of u during stress period",
+)
+stress_start_hours = st.sidebar.slider(
+    "Stress start time (hours)",
+    min_value=0.0,
+    max_value=float(T_in_hours - 1),
+    value=5.0,
+    step=0.5,
+)
+stress_duration_hours = st.sidebar.slider(
+    "Stress duration (hours)",
+    min_value=0.1,
+    max_value=float(T_in_hours - stress_start_hours),
+    value=2.0,
+    step=0.1,
+)
 
 # Convert hours to minutes for simulation
 stress_start = stress_start_hours * 60
@@ -115,20 +207,18 @@ guess = [1.0, 1.0, 1.0, 1.0]
 steady_state = fsolve(f_to_solve, guess)
 x0 = steady_state
 
-# Simulation time
-T = T_in_hours * 60
-t = np.linspace(0, T, n_points)
-
 # Create stress parameters if enabled
 stress_params = None
 if enable_stress:
     stress_params = (stress_amplitude, stress_start, stress_duration)
 
 # Simulate the system
-sol = sde_solver_system(hpa_drift, x0, t, sigma, params, amplitude, period, stress_params)
+sol = sde_solver_system(
+    hpa_drift, x0, t, sigma, params, amplitude, period, noise, stress_params
+)
 if st.checkbox("Normalise the concentrations"):
     sol = sol / np.max(sol, axis=0)
-    
+
 # Plotting
 t = t / 60  # Convert time to hours
 fig = go.Figure()
