@@ -126,26 +126,6 @@ st.title("HPA Axis Fast-Slow Simulation")
 st.write(
     "This app simulates the HPA axis using a system of stochastic differential equations (SDE)."
 )
-st.write("**Fast layer (hormones):**")
-st.latex(
-    r"""
-\begin{aligned}
-\frac{dx_1}{dt} &= b_1 \frac{1}{1 + \left(\frac{x_{3b}}{k_{gr}}\right)^3} \frac{1}{x_{3b}} u - a_1 x_1 \\
-\frac{dx_2}{dt} &= b_2 x_1 P \frac{1}{1 + \left(\frac{x_3}{k_{gr}}\right)^3} - a_2 x_2 \\
-\frac{dx_3}{dt} &= b_3 x_2 A - a_3 x_3 \\
-\frac{dx_{3b}}{dt} &= k (x_3-x_{3b}) - a_3 x_{3b}
-\end{aligned}
-"""
-)
-st.write("**Slow layer (glands):**")
-st.latex(
-    r"""
-\begin{aligned}
-\frac{dP}{dt} &= P \left( b_P x_1 \left(1 - \frac{P}{K_P}\right) - a_P \right) \\
-\frac{dA}{dt} &= A \left( b_A x_2 \left(1 - \frac{A}{K_A}\right) - a_A \right)
-\end{aligned})
-"""
-)
 
 # new timescale knob for experimentation
 timescale_ratio = st.sidebar.slider(
@@ -216,7 +196,7 @@ T_in_hours = st.sidebar.slider(
     "Simulation Time (hours)", min_value=1, max_value=24*60, value=720, step=1
 )
 n_points = st.sidebar.slider(
-    "Time Steps", min_value=100, max_value=10000, value=5000, step=50
+    "Time Steps", min_value=100, max_value=10000, value=10000, step=50
 )
 
 # Simulation time
@@ -367,6 +347,29 @@ if st.session_state.svg_data2 is not None:
         mime="text/html",
     )
 
+st.subheader("Equations")
+st.write("**Fast layer (hormones):**")
+st.latex(
+    r"""
+\begin{aligned}
+\frac{dx_1}{dt} &= b_1 \frac{1}{1 + \left(\frac{x_{3b}}{k_{gr}}\right)^3} \frac{1}{x_{3b}} u - a_1 x_1 \\
+\frac{dx_2}{dt} &= b_2 x_1 P \frac{1}{1 + \left(\frac{x_3}{k_{gr}}\right)^3} - a_2 x_2 \\
+\frac{dx_3}{dt} &= b_3 x_2 A - a_3 x_3 \\
+\frac{dx_{3b}}{dt} &= k (x_3-x_{3b}) - a_3 x_{3b}
+\end{aligned}
+"""
+)
+st.write("**Slow layer (glands):**")
+st.latex(
+    r"""
+\begin{aligned}
+\frac{dP}{dt} &= P \left( b_P x_1 \left(1 - \frac{P}{K_P}\right) - a_P \right) \\
+\frac{dA}{dt} &= A \left( b_A x_2 \left(1 - \frac{A}{K_A}\right) - a_A \right)
+\end{aligned})
+"""
+)
+
+
 st.markdown(
     """
 
@@ -432,6 +435,12 @@ st.markdown(
 - **Fast layer:** Hormones equilibrate on the scale of minutes to hours
 - **Slow layer:** Glands adapt on the scale of weeks to months (half-life ~20-30 days)
 - This separation enables **dynamical compensation** - glands adjust their mass to buffer shocks (see plots), explaining why, according to Milo et al. 2025, HPA-targeting drugs fail in chronic stress conditions
+
+## Acknowledgments
+Adaptation by Peter Dresslar, Arizona State University.
+
+- The original code in this repo was created by **Yaniv Grosskopf**, Uri Alon Lab, Weizmann Institute of Science. 
+https://github.com/AlonLabWIS/HPA_model_simulter
 
 **Reference:** Milo et al. (2025) "Hormone circuit explains why most HPA drugs fail for mood disorders and predicts the few that work" *Molecular Systems Biology* 21(3):254-273
     """
