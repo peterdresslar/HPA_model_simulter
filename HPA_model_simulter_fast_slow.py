@@ -344,27 +344,27 @@ if "svg_data" not in st.session_state:
 if "svg_data2" not in st.session_state:
     st.session_state.svg_data2 = None
 
-def fig_to_svg(fig):
-    img_bytes = fig.to_image(format="svg")
-    return img_bytes.decode("utf-8")
+def fig_to_html(fig):
+    """Convert figure to HTML string"""
+    return fig.to_html(include_plotlyjs='cdn', include_mathjax='cdn')
 
-if st.button("Convert Plots to SVG"):
-    st.session_state.svg_data = fig_to_svg(fig)
-    st.session_state.svg_data2 = fig_to_svg(fig2)
+if st.button("Convert Plots to HTML"):
+    st.session_state.svg_data = fig_to_html(fig)
+    st.session_state.svg_data2 = fig_to_html(fig2)
 
 if st.session_state.svg_data is not None:
     st.download_button(
-        label="Download Hormone Layer Plot as SVG",
+        label="Download Hormone Layer Plot as HTML",
         data=st.session_state.svg_data.encode("utf-8"),
-        file_name=f"{filename}.svg",
-        mime="image/svg+xml",
+        file_name=f"{filename}.html",
+        mime="text/html",
     )
 if st.session_state.svg_data2 is not None:
     st.download_button(
-        label="Download Gland Layer Plot as SVG",
+        label="Download Gland Layer Plot as HTML",
         data=st.session_state.svg_data2.encode("utf-8"),
-        file_name=f"{filename}_gland.svg",
-        mime="image/svg+xml",
+        file_name=f"{filename}_gland.html",
+        mime="text/html",
     )
 
 st.markdown(
