@@ -124,9 +124,8 @@ def add_entropy_controls():
 
 st.title("HPA Axis Fast-Slow Simulation")
 st.write(
-    "This app simulates the HPA axis using a system of stochastic differential equations (SDE) with a fast-slow relationship."
+    "This app simulates the HPA axis using a system of stochastic differential equations (SDE)."
 )
-st.write("The equations of the HPA axis model are:")
 st.write("**Fast layer (hormones):**")
 st.latex(
     r"""
