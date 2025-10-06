@@ -4,8 +4,9 @@ from scipy.optimize import fsolve
 import plotly.graph_objects as go
 
 # constants from the notebook
-KA = 10**6 # Adrenal carrying capacity - very big (no carrying capacity) at default
-KP = 10**6 # Pituitary carrying capacity - very big (no carrying capacity) at default
+KA = 10**6  # Adrenal carrying capacity - very big (no carrying capacity) at default
+KP = 10**6  # Pituitary carrying capacity - very big (no carrying capacity) at default
+
 
 # Drift function for the HPA axis hormones
 def hpa_hormones_fast(x, t, a1, b1, a2, b2, a3, b3, bP, bA, aP, aA, k, u, kgr):
@@ -22,19 +23,39 @@ def hpa_hormones_fast(x, t, a1, b1, a2, b2, a3, b3, bP, bA, aP, aA, k, u, kgr):
     dx3b = k * (x3 - x3b) - a3 * x3b
     return np.array([dx1, dx2, dx3, dx3b])
 
+
 # handle glands on the "slow axis"
 # see Milo 2025 paper and supplementary material
 def glands_drift_slow(x, t, a1, b1, a2, b2, a3, b3, bP, bA, aP, aA, k, u, kgr):
     x1, x2, x3, x3b, P, A = x
     # adding carrying capacities from the notebook code but otherwise these match the paper
-    dP = P * (bP * x1 * (1 - P/KP) - aP)    # aP varies from the notebook code but matches the paper
-    dA = A * (bA * x2 * (1 - A/KA) - aA)    # aA varies from the notebook code but matches the paper
+    dP = P * (
+        bP * x1 * (1 - P / KP) - aP
+    )  # aP varies from the notebook code but matches the paper
+    dA = A * (
+        bA * x2 * (1 - A / KA) - aA
+    )  # aA varies from the notebook code but matches the paper
     return np.array([dP, dA])
 
+
 def hpa_system(x, t, a1, b1, a2, b2, a3, b3, bP, bA, aP, aA, k, u, kgr):
+    disabled_glands = st.session_state.glandular_layer
+
+    # if glands are disabled we can pin P and A to 1.0
+    if disabled_glands:
+        x[4] = 1.0
+        x[5] = 1.0
+    
     fast = hpa_hormones_fast(x, t, a1, b1, a2, b2, a3, b3, bP, bA, aP, aA, k, u, kgr)
-    slow = glands_drift_slow(x, t, a1, b1, a2, b2, a3, b3, bP, bA, aP, aA, k, u, kgr)
-    return np.concatenate([fast, slow]) # bundle the fast and slow axes into a 6-dimensional array
+
+    if disabled_glands:  # output for plot to operate
+        slow = np.array([0.0, 0.0])
+    else:
+        slow = glands_drift_slow(x, t, a1, b1, a2, b2, a3, b3, bP, bA, aP, aA, k, u, kgr)
+
+    return np.concatenate(
+        [fast, slow]
+    )  # bundle the fast and slow axes into a 6-dimensional array
 
 
 # Euler–Maruyama SDE solver for systems
@@ -76,11 +97,6 @@ def sde_solver_system(
         x[i][0] += sigma * dw + sin_wave  # Apply noise and sin wave to x1
     return x
 
-# deal with streamlit entropy session states
-if "entropy" not in st.session_state:
-    st.session_state.entropy = int(np.random.SeedSequence().entropy)
-if "entropy_input" not in st.session_state:
-    st.session_state.entropy_input = "" # the input must be a textinput due to streamlit numberinput max value
 
 # function to generate random noise with optional seed
 def generate_noise(t: np.ndarray, entropy: int = None) -> np.ndarray:
@@ -92,7 +108,7 @@ def generate_noise(t: np.ndarray, entropy: int = None) -> np.ndarray:
         else np.random.SeedSequence()
     )
     rng = np.random.default_rng(sq)
-    return rng.normal(scale=np.sqrt(dt), size=len(t))  # original noise 
+    return rng.normal(scale=np.sqrt(dt), size=len(t))  # original noise
 
 
 def add_entropy_controls():
@@ -122,9 +138,31 @@ def add_entropy_controls():
 
     return st.session_state.entropy
 
+
+def toggle_glandular_layer():
+    st.session_state.glandular_layer = not st.session_state.glandular_layer
+
+
+##### STREAMLIT APP #####
+# deal with streamlit entropy session states
+if "entropy" not in st.session_state:
+    st.session_state.entropy = int(np.random.SeedSequence().entropy)
+if "entropy_input" not in st.session_state:
+    st.session_state.entropy_input = (
+        ""  # the input must be a textinput due to streamlit numberinput max value
+    )
+if "glandular_layer" not in st.session_state:
+    st.session_state.glandular_layer = False
+
 st.title("HPA Axis Fast-Slow Simulation")
 st.write(
     "This app simulates the HPA axis using a system of stochastic differential equations (SDE)."
+)
+
+st.sidebar.toggle(
+    "Disable glandular layer",
+    value=st.session_state.glandular_layer,
+    on_change=toggle_glandular_layer,
 )
 
 # new timescale knob for experimentation
@@ -134,7 +172,7 @@ timescale_ratio = st.sidebar.slider(
     max_value=100000,
     value=1000,
     step=1,
-    help="1000 = paper default. >1000 = faster glands (more synchronized). <1000 = slower glands (more separated)."
+    help="1000 = paper default. >1000 = faster glands (more synchronized). <1000 = slower glands (more separated).",
 )
 
 # Parameters for the hormones
@@ -153,28 +191,28 @@ kgr = st.sidebar.number_input("kgr", min_value=0.1, max_value=10.0, value=5.0, s
 
 st.sidebar.title("Gland Layer Parameters")
 bP_per_day = st.sidebar.number_input(
-    "bP (per day)", 
-    value=np.log(2)/20,  # Paper default
+    "bP (per day)",
+    value=np.log(2) / 20,  # Paper default
     format="%.4f",
-    help="From Milo et al. 2025"
+    help="From Milo et al. 2025",
 )
 bA_per_day = st.sidebar.number_input(
-    "bA (per day)", 
-    value=np.log(2)/30,  # Paper default
+    "bA (per day)",
+    value=np.log(2) / 30,  # Paper default
     format="%.4f",
-    help="From Milo et al. 2025"
+    help="From Milo et al. 2025",
 )
 aP_per_day = st.sidebar.number_input(
-    "aP (per day)", 
-    value=np.log(2)/20,  # Paper default
+    "aP (per day)",
+    value=np.log(2) / 20,  # Paper default
     format="%.4f",
-    help="From Milo et al. 2025"
+    help="From Milo et al. 2025",
 )
 aA_per_day = st.sidebar.number_input(
-    "aA (per day)", 
-    value=np.log(2)/30,  # Paper default
+    "aA (per day)",
+    value=np.log(2) / 30,  # Paper default
     format="%.4f",
-    help="From Milo et al. 2025"
+    help="From Milo et al. 2025",
 )
 # scale the params from per day to per minute
 bP = (bP_per_day / 1440) * (timescale_ratio / 1000)
@@ -193,7 +231,7 @@ sigma = st.sidebar.slider(
     "Noise Level (sigma)", min_value=0.0, max_value=1.0, value=0.2, step=0.01
 )
 T_in_hours = st.sidebar.slider(
-    "Simulation Time (hours)", min_value=1, max_value=24*60, value=720, step=1
+    "Simulation Time (hours)", min_value=1, max_value=24 * 60, value=720, step=1
 )
 n_points = st.sidebar.slider(
     "Time Steps", min_value=100, max_value=10000, value=10000, step=50
@@ -204,7 +242,7 @@ T = T_in_hours * 60
 t = np.linspace(0, T, n_points)
 
 st.sidebar.title("Noise Controls")
-entropy =add_entropy_controls()
+entropy = add_entropy_controls()
 
 # now we should be able to generate the noise under a controlled entropy condition
 noise = generate_noise(t, entropy)  # returns array size of t
@@ -252,6 +290,9 @@ def f_to_solve(x):
 guess = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 steady_state = fsolve(f_to_solve, guess)
 x0 = steady_state
+if st.session_state.glandular_layer: # if disabled
+    x0[4] = 0.0
+    x0[5] = 0.0
 
 # Create stress parameters if enabled
 stress_params = None
@@ -262,7 +303,7 @@ if enable_stress:
 sol = sde_solver_system(
     hpa_system, x0, t, sigma, params, amplitude, period, noise, stress_params
 )
-if st.checkbox("Normalise hormone concentrations"): # do not normalize glands!
+if st.checkbox("Normalise hormone concentrations"):  # do not normalize glands!
     sol_normalized = sol.copy()
     sol_normalized[:, 0:4] = sol[:, 0:4] / np.max(sol[:, 0:4], axis=0)  # only hormones
     sol = sol_normalized
@@ -324,9 +365,11 @@ if "svg_data" not in st.session_state:
 if "svg_data2" not in st.session_state:
     st.session_state.svg_data2 = None
 
+
 def fig_to_html(fig):
     """Convert figure to HTML string"""
-    return fig.to_html(include_plotlyjs='cdn', include_mathjax='cdn')
+    return fig.to_html(include_plotlyjs="cdn", include_mathjax="cdn")
+
 
 if st.button("Convert Plots to HTML"):
     st.session_state.svg_data = fig_to_html(fig)
@@ -434,7 +477,7 @@ st.markdown(
 
 - **Fast layer:** Hormones equilibrate on the scale of minutes to hours
 - **Slow layer:** Glands adapt on the scale of weeks to months (half-life ~20-30 days)
-- This separation enables **dynamical compensation** - glands adjust their mass to buffer shocks (see plots), explaining why, according to Milo et al. 2025, HPA-targeting drugs fail in chronic stress conditions
+- This separation enables **dynamical compensation** - glands adjust their mass to buffer shocks (see plots), explaining why, according to Milo et al. 2025, HPA-targeting drugs fail in chronic stress conditions, even when successfully damping the hormone system alone.
 
 ## Acknowledgments
 Adaptation by Peter Dresslar, Arizona State University.
@@ -445,5 +488,3 @@ https://github.com/AlonLabWIS/HPA_model_simulter
 **Reference:** Milo et al. (2025) "Hormone circuit explains why most HPA drugs fail for mood disorders and predicts the few that work" *Molecular Systems Biology* 21(3):254-273
     """
 )
-
-
