@@ -1,8 +1,9 @@
-import streamlit as st
-import numpy as np
-from scipy.optimize import fsolve
-import plotly.graph_objects as go
 import sys
+
+import numpy as np
+import plotly.graph_objects as go
+import streamlit as st
+from scipy.optimize import fsolve
 
 # constants from the notebook
 KA = 10**6  # Adrenal carrying capacity - very big (no carrying capacity) at default
@@ -30,12 +31,8 @@ def hpa_hormones_fast(x, t, a1, b1, a2, b2, a3, b3, bP, bA, aP, aA, k, u, kgr):
 def glands_drift_slow(x, t, a1, b1, a2, b2, a3, b3, bP, bA, aP, aA, k, u, kgr):
     x1, x2, x3, x3b, P, A = x
     # adding carrying capacities from the notebook code but otherwise these match the paper
-    dP = P * (
-        bP * x1 * (1 - P / KP) - aP
-    )  # aP varies from the notebook code but matches the paper
-    dA = A * (
-        bA * x2 * (1 - A / KA) - aA
-    )  # aA varies from the notebook code but matches the paper
+    dP = P * (bP * x1 * (1 - P / KP) - aP)  # aP varies from the notebook code but matches the paper
+    dA = A * (bA * x2 * (1 - A / KA) - aA)  # aA varies from the notebook code but matches the paper
     return np.array([dP, dA])
 
 
@@ -46,7 +43,7 @@ def hpa_system(x, t, a1, b1, a2, b2, a3, b3, bP, bA, aP, aA, k, u, kgr):
     if disabled_glands:
         x[4] = 1.0
         x[5] = 1.0
-    
+
     fast = hpa_hormones_fast(x, t, a1, b1, a2, b2, a3, b3, bP, bA, aP, aA, k, u, kgr)
 
     if disabled_glands:  # output for plot to operate
@@ -54,15 +51,11 @@ def hpa_system(x, t, a1, b1, a2, b2, a3, b3, bP, bA, aP, aA, k, u, kgr):
     else:
         slow = glands_drift_slow(x, t, a1, b1, a2, b2, a3, b3, bP, bA, aP, aA, k, u, kgr)
 
-    return np.concatenate(
-        [fast, slow]
-    )  # bundle the fast and slow axes into a 6-dimensional array
+    return np.concatenate([fast, slow])  # bundle the fast and slow axes into a 6-dimensional array
 
 
 # Euler–Maruyama SDE solver for systems
-def sde_solver_system(
-    drift, x0, t, sigma, params, amplitude, period, noise, stress_params=None
-):
+def sde_solver_system(drift, x0, t, sigma, params, amplitude, period, noise, stress_params=None):
     n = len(t)
     d = len(x0)
     x = np.zeros((n, d))
@@ -82,9 +75,7 @@ def sde_solver_system(
         current_u = params[11]  # Original u value
 
         # Apply stress if within the stress period
-        if stress_params and stress_start <= t[i - 1] < (
-            stress_start + stress_duration
-        ):
+        if stress_params and stress_start <= t[i - 1] < (stress_start + stress_duration):
             current_u = stress_amplitude
 
         # Create parameters with updated u
@@ -103,11 +94,7 @@ def sde_solver_system(
 def generate_noise(t: np.ndarray, entropy: int = None) -> np.ndarray:
     # use the generator pattern from numpy
     dt = t[1] - t[0]
-    sq = (
-        np.random.SeedSequence(entropy)
-        if entropy is not None
-        else np.random.SeedSequence()
-    )
+    sq = np.random.SeedSequence(entropy) if entropy is not None else np.random.SeedSequence()
     rng = np.random.default_rng(sq)
     return rng.normal(scale=np.sqrt(dt), size=len(t))  # original noise
 
@@ -152,14 +139,12 @@ st.session_state.report = "report" in sys.argv  # if report is in the args, set 
 if "entropy" not in st.session_state:
     st.session_state.entropy = int(np.random.SeedSequence().entropy)
 if "entropy_input" not in st.session_state:
-    st.session_state.entropy_input = ""      # input must be a textinput due to streamlit numberinput max value
+    st.session_state.entropy_input = ""  # input must be a textinput due to streamlit numberinput max value
 if "glandular_layer" not in st.session_state:
     st.session_state.glandular_layer = False
 
 st.title("HPA Axis Fast-Slow Simulation")
-st.write(
-    "This app simulates the HPA axis using a system of stochastic differential equations (SDE)."
-)
+st.write("This app simulates the HPA axis using a system of stochastic differential equations (SDE).")
 
 st.sidebar.toggle(
     "Disable glandular layer",
@@ -220,22 +205,12 @@ bA = (bA_per_day / 1440) * (timescale_ratio / 1000)
 aP = (aP_per_day / 1440) * (timescale_ratio / 1000)
 aA = (aA_per_day / 1440) * (timescale_ratio / 1000)
 
-amplitude = st.sidebar.slider(
-    "Amplitude of sin wave", min_value=0.0, max_value=1.0, value=0.3, step=0.01
-)
-period_in_hours = st.sidebar.slider(
-    "Period of sin wave (hours)", min_value=1, max_value=24, value=24, step=1
-)
+amplitude = st.sidebar.slider("Amplitude of sin wave", min_value=0.0, max_value=1.0, value=0.3, step=0.01)
+period_in_hours = st.sidebar.slider("Period of sin wave (hours)", min_value=1, max_value=24, value=24, step=1)
 period = period_in_hours * 60  # Convert hours to minutes
-sigma = st.sidebar.slider(
-    "Noise Level (sigma)", min_value=0.0, max_value=1.0, value=0.2, step=0.01
-)
-T_in_hours = st.sidebar.slider(
-    "Simulation Time (hours)", min_value=1, max_value=24 * 60, value=720, step=1
-)
-n_points = st.sidebar.slider(
-    "Time Steps", min_value=100, max_value=10000, value=10000, step=50
-)
+sigma = st.sidebar.slider("Noise Level (sigma)", min_value=0.0, max_value=1.0, value=0.2, step=0.01)
+T_in_hours = st.sidebar.slider("Simulation Time (hours)", min_value=1, max_value=24 * 60, value=720, step=1)
+n_points = st.sidebar.slider("Time Steps", min_value=100, max_value=10000, value=10000, step=50)
 
 # Simulation time
 T = T_in_hours * 60
@@ -290,7 +265,7 @@ def f_to_solve(x):
 guess = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 steady_state = fsolve(f_to_solve, guess)
 x0 = steady_state
-if st.session_state.glandular_layer: # if glands disabled
+if st.session_state.glandular_layer:  # if glands disabled
     x0[4] = 0.0
     x0[5] = 0.0
 
@@ -300,9 +275,7 @@ if enable_stress:
     stress_params = (stress_amplitude, stress_start, stress_duration)
 
 # Simulate the system
-sol = sde_solver_system(
-    hpa_system, x0, t, sigma, params, amplitude, period, noise, stress_params
-)
+sol = sde_solver_system(hpa_system, x0, t, sigma, params, amplitude, period, noise, stress_params)
 if st.checkbox("Normalise hormone concentrations"):  # do not normalize gland mass values
     sol_normalized = sol.copy()
     sol_normalized[:, 0:4] = sol[:, 0:4] / np.max(sol[:, 0:4], axis=0)  # only hormones
@@ -490,8 +463,8 @@ https://github.com/AlonLabWIS/HPA_model_simulter
 
 if st.session_state.report:  # if user requests to report, output final states and input variables into a table
     st.write("### Final states:")
-    st.write("P: " + str(sol[-1,4]))
-    st.write("A: " + str(sol[-1,5]))
+    st.write("P: " + str(sol[-1, 4]))
+    st.write("A: " + str(sol[-1, 5]))
     st.write("Input variables:")
     st.write("a1: " + str(a1))
     st.write("b1: " + str(b1))

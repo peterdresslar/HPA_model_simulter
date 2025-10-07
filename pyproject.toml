@@ -14,5 +14,14 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "ruff>=0.9.5",
     "watchdog>=6.0.0",
 ]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.ruff.format]
