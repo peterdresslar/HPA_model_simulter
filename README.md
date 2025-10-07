@@ -17,3 +17,7 @@ It was then extended using observations from the paper, Milo, T., Nir Halber, S.
 Our model is called `HPA_Model_Simulter_Fast_Slow.` It was created by Peter Dresslar as part of a Arizona State University Complex Systems class taught by Prof. Enrico Borriello.
 
 To run locally: `uv run streamlit run HPA_model_simulter_fast_slow.py`.
+
+To run with a final numerical report: `uv run streamlit run HAP_model_simulter_fast_slow.py report`
+
+To run the original code, modified only with interface upgrades: `uv run streamlit run src/HAP_model_simulter.py`

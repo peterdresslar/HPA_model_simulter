@@ -1,7 +1,9 @@
+from cgitb import text
 import streamlit as st
 import numpy as np
 from scipy.optimize import fsolve
 import plotly.graph_objects as go
+import sys
 
 # constants from the notebook
 KA = 10**6  # Adrenal carrying capacity - very big (no carrying capacity) at default
@@ -144,13 +146,14 @@ def toggle_glandular_layer():
 
 
 ##### STREAMLIT APP #####
+# args
+st.session_state.report = "report" in sys.argv  # if report is in the args, set report to True
+
 # deal with streamlit entropy session states
 if "entropy" not in st.session_state:
     st.session_state.entropy = int(np.random.SeedSequence().entropy)
 if "entropy_input" not in st.session_state:
-    st.session_state.entropy_input = (
-        ""  # the input must be a textinput due to streamlit numberinput max value
-    )
+    st.session_state.entropy_input = ""      # input must be a textinput due to streamlit numberinput max value
 if "glandular_layer" not in st.session_state:
     st.session_state.glandular_layer = False
 
@@ -181,9 +184,7 @@ a1 = st.sidebar.number_input("a1", min_value=0.0, max_value=2.0, value=0.17, ste
 b1 = st.sidebar.number_input("b1", min_value=0.0, max_value=2.0, value=0.255, step=1e-4)
 a2 = st.sidebar.number_input("a2", min_value=0.0, max_value=2.0, value=0.07, step=1e-4)
 b2 = st.sidebar.number_input("b2", min_value=0.0, max_value=2.0, value=0.14, step=1e-4)
-a3 = st.sidebar.number_input(
-    "a3", min_value=0.0, max_value=2.0, value=0.0086, step=1e-4
-)
+a3 = st.sidebar.number_input("a3", min_value=0.0, max_value=2.0, value=0.0086, step=1e-4)
 b3 = st.sidebar.number_input("b3", min_value=0.0, max_value=2.0, value=0.086, step=1e-4)
 k = st.sidebar.number_input("k", min_value=0.0, max_value=2.0, value=0.05, step=1e-4)
 u = st.sidebar.number_input("u", min_value=0.0, max_value=5.0, value=1.0, step=0.1)
@@ -192,25 +193,25 @@ kgr = st.sidebar.number_input("kgr", min_value=0.1, max_value=10.0, value=5.0, s
 st.sidebar.title("Gland Layer Parameters")
 bP_per_day = st.sidebar.number_input(
     "bP (per day)",
-    value=np.log(2) / 20,  # Paper default
+    value=np.log(2) / 20,  # via paper
     format="%.4f",
     help="From Milo et al. 2025",
 )
 bA_per_day = st.sidebar.number_input(
     "bA (per day)",
-    value=np.log(2) / 30,  # Paper default
+    value=np.log(2) / 30,  # via paper
     format="%.4f",
     help="From Milo et al. 2025",
 )
 aP_per_day = st.sidebar.number_input(
     "aP (per day)",
-    value=np.log(2) / 20,  # Paper default
+    value=np.log(2) / 20,  # via paper
     format="%.4f",
     help="From Milo et al. 2025",
 )
 aA_per_day = st.sidebar.number_input(
     "aA (per day)",
-    value=np.log(2) / 30,  # Paper default
+    value=np.log(2) / 30,  # via paper
     format="%.4f",
     help="From Milo et al. 2025",
 )
@@ -290,7 +291,7 @@ def f_to_solve(x):
 guess = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 steady_state = fsolve(f_to_solve, guess)
 x0 = steady_state
-if st.session_state.glandular_layer: # if disabled
+if st.session_state.glandular_layer: # if glands disabled
     x0[4] = 0.0
     x0[5] = 0.0
 
@@ -303,7 +304,7 @@ if enable_stress:
 sol = sde_solver_system(
     hpa_system, x0, t, sigma, params, amplitude, period, noise, stress_params
 )
-if st.checkbox("Normalise hormone concentrations"):  # do not normalize glands!
+if st.checkbox("Normalise hormone concentrations"):  # do not normalize gland mass values
     sol_normalized = sol.copy()
     sol_normalized[:, 0:4] = sol[:, 0:4] / np.max(sol[:, 0:4], axis=0)  # only hormones
     sol = sol_normalized
@@ -412,7 +413,6 @@ st.latex(
 """
 )
 
-
 st.markdown(
     """
 
@@ -488,3 +488,33 @@ https://github.com/AlonLabWIS/HPA_model_simulter
 **Reference:** Milo et al. (2025) "Hormone circuit explains why most HPA drugs fail for mood disorders and predicts the few that work" *Molecular Systems Biology* 21(3):254-273
     """
 )
+
+if st.session_state.report:  # if user requests to report, output final states and input variables into a table
+    st.write("### Final states:")
+    st.write("P: " + str(sol[-1,4]))
+    st.write("A: " + str(sol[-1,5]))
+    st.write("Input variables:")
+    st.write("a1: " + str(a1))
+    st.write("b1: " + str(b1))
+    st.write("a2: " + str(a2))
+    st.write("b2: " + str(b2))
+    st.write("a3: " + str(a3))
+    st.write("b3: " + str(b3))
+    st.write("bP: " + str(bP))
+    st.write("bA: " + str(bA))
+    st.write("aP: " + str(aP))
+    st.write("aA: " + str(aA))
+    st.write("k: " + str(k))
+    st.write("u: " + str(u))
+    st.write("kgr: " + str(kgr))
+    st.write("amplitude: " + str(amplitude))
+    st.write("period: " + str(period))
+    st.write("sigma: " + str(sigma))
+    st.write("T: " + str(T))
+    st.write("n_points: " + str(n_points))
+    st.write("entropy: " + str(entropy))
+    st.write("enable_stress: " + str(enable_stress))
+    st.write("stress_amplitude: " + str(stress_amplitude))
+    st.write("stress_start: " + str(stress_start))
+    st.write("stress_duration: " + str(stress_duration))
+    st.write("glandular_layer: " + str(st.session_state.glandular_layer))
