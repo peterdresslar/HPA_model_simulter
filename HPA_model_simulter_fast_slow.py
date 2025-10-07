@@ -1,4 +1,3 @@
-from cgitb import text
 import streamlit as st
 import numpy as np
 from scipy.optimize import fsolve
